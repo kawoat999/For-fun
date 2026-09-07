@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900 min-h-screen font-sans antialiased;
+  }
+}
+
+/* Print Stylesheet for A4 Quotations */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm 12mm;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    font-size: 11px !important;
+  }
+
+  /* Hide all UI shell, navbars, buttons, toolbars, and inputs */
+  .no-print,
+  nav,
+  header,
+  footer,
+  button,
+  .print-hidden {
+    display: none !important;
+  }
+
+  /* Force print area container to display full page cleanly */
+  .print-area {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+  }
+
+  /* Keep table borders crisp */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  /* Prevent awkward page splits */
+  tr,
+  .avoid-break {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+}

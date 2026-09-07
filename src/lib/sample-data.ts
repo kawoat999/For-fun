@@ -1,0 +1,137 @@
+import { ReceiptData, CompanyInfo } from './types';
+
+export const DEFAULT_SELLER_INFO: CompanyInfo = {
+  name: '',
+  taxId: '',
+  branch: '',
+  address: '',
+  phone: '',
+  email: '',
+  website: '',
+};
+
+export const DEFAULT_CLIENT_INFO: CompanyInfo = {
+  name: '',
+  taxId: '',
+  branch: '',
+  address: '',
+  phone: '',
+  email: '',
+};
+
+export const EMPTY_RECEIPT_DATA: ReceiptData = {
+  merchantName: '',
+  taxId: '',
+  address: '',
+  phone: '',
+  receiptNumber: '',
+  date: '',
+  items: [],
+  subtotal: 0,
+  taxRate: 7,
+  taxAmount: 0,
+  discount: 0,
+  totalAmount: 0,
+  paymentMethod: '',
+};
+
+export const SAMPLE_RECEIPTS: { title: string; description: string; data: ReceiptData }[] = [
+  {
+    title: 'ตัวอย่างที่ 1: บิลค่าอุปกรณ์สำนักงาน & IT',
+    description: 'ใบเสร็จสินค้าฮาร์ดแวร์และอุปกรณ์คอมพิวเตอร์สำนักงาน',
+    data: {
+      merchantName: 'บริษัท ออฟฟิศ ซัพพลาย แอนด์ เทคโนโลยี จำกัด',
+      taxId: '0105554012345',
+      address: '99/1 ถนนสุขุมวิท 21 คลองเตยเหนือ วัฒนา กรุงเทพฯ 10110',
+      phone: '02-234-5678',
+      receiptNumber: 'INV-2026-0891',
+      date: '2026-09-05',
+      items: [
+        {
+          id: 'item-1',
+          name: 'Dell UltraSharp 27" 4K Monitor (U2723QE)',
+          quantity: 2,
+          unit: 'เครื่อง',
+          unitPrice: 18500,
+          totalPrice: 37000,
+        },
+        {
+          id: 'item-2',
+          name: 'Logitech MX Master 3S Wireless Mouse',
+          quantity: 3,
+          unit: 'ตัว',
+          unitPrice: 3890,
+          totalPrice: 11670,
+        },
+        {
+          id: 'item-3',
+          name: 'Keychron Q1 Pro Mechanical Keyboard',
+          quantity: 2,
+          unit: 'ตัว',
+          unitPrice: 6990,
+          totalPrice: 13980,
+        },
+        {
+          id: 'item-4',
+          name: 'กระดาษ Double A A4 80gsm (กล่อง 5 รีม)',
+          quantity: 4,
+          unit: 'กล่อง',
+          unitPrice: 650,
+          totalPrice: 2600,
+        },
+      ],
+      subtotal: 65250,
+      taxRate: 7,
+      taxAmount: 4567.5,
+      discount: 1000,
+      totalAmount: 68817.5,
+      paymentMethod: 'โอนเงิน / PromptPay',
+      notes: 'รับประกันสินค้าฮาร์ดแวร์ 3 ปี',
+    },
+  },
+  {
+    title: 'ตัวอย่างที่ 2: บริการพัฒนาซอฟต์แวร์ & Cloud Service',
+    description: 'ใบแจ้งหนี้ค่าบริการ Cloud Architecture & Next.js Implementation',
+    data: {
+      merchantName: 'บริษัท คลาวด์ เน็กซ์ ซอฟต์แวร์ จำกัด',
+      taxId: '0105562098765',
+      address: '55 อาคารเทคพาร์ค ถนนรัชดาภิเษก ดินแดง กรุงเทพฯ 10400',
+      phone: '02-555-1122',
+      receiptNumber: 'SVC-2026-0045',
+      date: '2026-09-06',
+      items: [
+        {
+          id: 'item-1',
+          name: 'บริการออกแบบสถาปัตยกรรมระบบ Cloud & OCR API Pipeline',
+          quantity: 1,
+          unit: 'โครงการ',
+          unitPrice: 45000,
+          totalPrice: 45000,
+        },
+        {
+          id: 'item-2',
+          name: 'บริการเชื่อมต่อระบบโมเดล Gemini 2.5 Flash กับ Business Logic',
+          quantity: 1,
+          unit: 'ระบบ',
+          unitPrice: 32000,
+          totalPrice: 32000,
+        },
+        {
+          id: 'item-3',
+          name: 'บริการทดสอบระบบ Performance & Security Audit รายปี',
+          quantity: 1,
+          unit: 'สัญญา',
+          unitPrice: 18000,
+          totalPrice: 18000,
+        },
+      ],
+      subtotal: 95000,
+      taxRate: 7,
+      taxAmount: 6650,
+      discount: 5000,
+      totalAmount: 96650,
+      paymentMethod: 'โอนเงินผ่านบัญชีธนาคาร',
+      notes: 'กำหนดส่งมอบงานภายใน 30 วันนับจากวันอนุมัติใบเสนอราคา',
+    },
+  },
+];
