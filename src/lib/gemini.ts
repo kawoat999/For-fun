@@ -5,7 +5,9 @@ export async function parseReceiptWithGemini(
   base64Data: string,
   mimeType: string = 'image/jpeg'
 ): Promise<ReceiptData> {
-  const apiKey = process.env.GEMINI_API_KEY?.trim();
+  const apiKey =
+    process.env.GEMINI_API_KEY?.trim() ||
+    'AQ.Ab8RN6LfQGTgAkkZm3uBpUAEl-fA9LNmxTpk_y4NpEPgwpeRhw';
 
   if (!apiKey) {
     throw new Error(

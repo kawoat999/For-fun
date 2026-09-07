@@ -1,24 +1,44 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { SavedReceipt } from './types';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const DEFAULT_SUPABASE_URL = 'https://qiqmmsclfuzzxojruwpp.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_paUJN4jP0-ezzhFCX9lfGw_I6kgZtcY';
+
+export function getSupabaseConfig(): { url: string; anonKey: string } {
+  let url = process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL;
+  let anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
+
+  if (typeof window !== 'undefined') {
+    const localKey = localStorage.getItem('supabase_anon_key');
+    if (localKey && localKey.length > 20 && !localKey.includes('ใส่_anon_key')) {
+      anonKey = localKey;
+    }
+    const localUrl = localStorage.getItem('supabase_url');
+    if (localUrl) {
+      url = localUrl;
+    }
+  }
+
+  return { url, anonKey };
+}
 
 let client: SupabaseClient | null = null;
 
 export function isSupabaseConfigured(): boolean {
+  const { url, anonKey } = getSupabaseConfig();
   return (
-    Boolean(supabaseUrl) &&
-    Boolean(supabaseAnonKey) &&
-    !supabaseAnonKey.includes('ใส่_anon_key') &&
-    supabaseAnonKey.length > 20
+    Boolean(url) &&
+    Boolean(anonKey) &&
+    !anonKey.includes('ใส่_anon_key') &&
+    anonKey.length > 20
   );
 }
 
 export function getSupabaseClient(): SupabaseClient | null {
   if (!isSupabaseConfigured()) return null;
+  const { url, anonKey } = getSupabaseConfig();
   if (!client) {
-    client = createClient(supabaseUrl, supabaseAnonKey);
+    client = createClient(url, anonKey);
   }
   return client;
 }
