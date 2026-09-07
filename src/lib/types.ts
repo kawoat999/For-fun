@@ -28,8 +28,17 @@ export interface ReceiptData {
   notes?: string;
 }
 
+export interface AuthUser {
+  id: string;
+  email: string;
+  name?: string;
+  avatarUrl?: string;
+  createdAt?: string;
+}
+
 export interface SavedReceipt {
   id: string;
+  userId?: string;
   createdAt: string;
   docType: DocumentType;
   outputDocType?: OutputDocType;

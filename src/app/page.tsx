@@ -19,6 +19,9 @@ import ReceiptHistory from '@/components/history/ReceiptHistory';
 import QuotationEditor from '@/components/quotation/QuotationEditor';
 import QuotationPreview from '@/components/quotation/QuotationPreview';
 import SupabaseModal from '@/components/ui/SupabaseModal';
+import { AuthProvider } from '@/context/AuthContext';
+import AuthModal from '@/components/auth/AuthModal';
+import UserMenu from '@/components/auth/UserMenu';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import { Quotation, ReceiptData, SavedReceipt, OutputDocType } from '@/lib/types';
 import { DEFAULT_SELLER_INFO, DEFAULT_CLIENT_INFO, SAMPLE_RECEIPTS, EMPTY_RECEIPT_DATA } from '@/lib/sample-data';
@@ -27,6 +30,14 @@ import { getSavedReceipts } from '@/lib/storage';
 type Step = 'scan' | 'review' | 'history' | 'quotation-edit' | 'quotation-preview';
 
 export default function Home() {
+  return (
+    <AuthProvider>
+      <ReceiptApp />
+    </AuthProvider>
+  );
+}
+
+function ReceiptApp() {
   const [currentStep, setCurrentStep] = useState<Step>('scan');
   const [scannedImage, setScannedImage] = useState<string | null>(null);
   const [activeReceipt, setActiveReceipt] = useState<ReceiptData | null>(null);
@@ -316,26 +327,32 @@ export default function Home() {
             </button>
           </div>
 
-          {/* Supabase Cloud Connection Button */}
-          <button
-            type="button"
-            onClick={() => setShowSupabaseModal(true)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
-              isSupabaseConfigured()
-                ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-            }`}
-          >
-            <Cloud className={`w-3.5 h-3.5 ${isSupabaseConfigured() ? 'text-emerald-600' : 'text-slate-500'}`} />
-            <span className="hidden lg:inline">
-              {isSupabaseConfigured() ? 'Cloud เชื่อมต่อแล้ว' : 'ตั้งค่า Cloud'}
-            </span>
-            <span
-              className={`w-2 h-2 rounded-full ${
-                isSupabaseConfigured() ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'
+          {/* Right Action Group: Supabase Cloud & User Authentication */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Supabase Cloud Connection Button */}
+            <button
+              type="button"
+              onClick={() => setShowSupabaseModal(true)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
+                isSupabaseConfigured()
+                  ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
               }`}
-            ></span>
-          </button>
+            >
+              <Cloud className={`w-3.5 h-3.5 ${isSupabaseConfigured() ? 'text-emerald-600' : 'text-slate-500'}`} />
+              <span className="hidden lg:inline">
+                {isSupabaseConfigured() ? 'Cloud เชื่อมต่อแล้ว' : 'ตั้งค่า Cloud'}
+              </span>
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  isSupabaseConfigured() ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'
+                }`}
+              ></span>
+            </button>
+
+            {/* User Account / Login Button */}
+            <UserMenu />
+          </div>
         </div>
       </header>
 
@@ -392,6 +409,9 @@ export default function Home() {
           />
         )}
       </div>
+
+      {/* Auth Modal for Sign In and Sign Up */}
+      <AuthModal />
 
       {/* Supabase Connection Modal */}
       <SupabaseModal
