@@ -10,7 +10,6 @@ import {
   Receipt,
   FileText,
   Calendar,
-  Loader2,
 } from 'lucide-react';
 import { Quotation, OutputDocType } from '@/lib/types';
 import { formatCurrency, formatDate, bahtText } from '@/lib/formatters';
@@ -29,7 +28,6 @@ export default function QuotationPreview({
   onUpdateQuotation,
 }: QuotationPreviewProps) {
   const [copied, setCopied] = useState(false);
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const isReceipt = quotation.docType === 'receipt';
 
   // Calculations
@@ -42,75 +40,6 @@ export default function QuotationPreview({
 
   const handlePrint = () => {
     window.print();
-  };
-
-  const handleDownloadPdf = async () => {
-    const element = document.getElementById('quotation-print-area');
-    if (!element) return;
-
-    try {
-      setIsGeneratingPdf(true);
-
-      // Dynamic import to avoid SSR errors
-      const html2canvas = (await import('html2canvas')).default;
-      const { jsPDF } = await import('jspdf');
-
-      element.classList.add('pdf-capture-active');
-
-      // Wait for React to re-render clean text and apply styles
-      await new Promise((resolve) => setTimeout(resolve, 200));
-
-      const canvas = await html2canvas(element, {
-        scale: 2, // 2x scale (~192 DPI) for crisp high-resolution text and lines
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        windowWidth: 1200,
-      });
-
-      element.classList.remove('pdf-capture-active');
-
-      const imgData = canvas.toDataURL('image/jpeg', 0.98);
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-        compress: true,
-      });
-
-      const pdfWidth = 210; // A4 width in mm
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-      if (pdfHeight <= 297) {
-        // Fits within single A4 page
-        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
-      } else {
-        // Multi-page document
-        let heightLeft = pdfHeight;
-        let position = 0;
-        const pageHeight = 297;
-
-        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight, undefined, 'FAST');
-        heightLeft -= pageHeight;
-
-        while (heightLeft > 0) {
-          position = position - pageHeight;
-          pdf.addPage();
-          pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, pdfHeight, undefined, 'FAST');
-          heightLeft -= pageHeight;
-        }
-      }
-
-      const docTypeTh = isReceipt ? 'ใบเสร็จรับเงิน' : 'ใบเสนอราคา';
-      const cleanNo = (quotation.quotationNumber || 'document').replace(/[\\/:*?"<>|]/g, '_');
-      pdf.save(`${docTypeTh}_${cleanNo}.pdf`);
-    } catch (err) {
-      console.error('Error generating PDF:', err);
-      alert('เกิดข้อผิดพลาดในการดาวน์โหลด PDF กรุณาลองใหม่อีกครั้ง');
-    } finally {
-      element.classList.remove('pdf-capture-active');
-      setIsGeneratingPdf(false);
-    }
   };
 
   const docTitleThai = isReceipt ? 'ใบเสร็จรับเงิน' : 'ใบเสนอราคา';
@@ -197,41 +126,19 @@ export default function QuotationPreview({
 
           <button
             type="button"
-            disabled={isGeneratingPdf}
-            onClick={handleDownloadPdf}
-            className={`inline-flex items-center gap-2 px-5 py-2 text-white text-xs font-bold rounded-lg shadow hover:shadow-md transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
+            onClick={handlePrint}
+            className={`inline-flex items-center gap-2 px-5 py-2 text-white text-xs font-bold rounded-lg shadow hover:shadow-md transition-all ${
               isReceipt ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-blue-600 hover:bg-blue-700'
             }`}
           >
-            {isGeneratingPdf ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                กำลังดาวน์โหลด PDF...
-              </>
-            ) : (
-              <>
-                <Download className="w-4 h-4" />
-                ดาวน์โหลด PDF (A4)
-              </>
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={handlePrint}
-            title="สั่งพิมพ์ผ่านเครื่องพิมพ์ (Print)"
-            className="inline-flex items-center p-2 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
-          >
-            <Printer className="w-3.5 h-3.5" />
+            <Printer className="w-4 h-4" />
+            สั่งพิมพ์ / บันทึก PDF (A4)
           </button>
         </div>
       </div>
 
       {/* A4 Printable Document Container */}
-      <div
-        id="quotation-print-area"
-        className="print-area max-w-[210mm] mx-auto bg-white p-8 md:p-12 rounded-2xl shadow-md print:shadow-none print:p-0 print:max-w-none text-slate-800 text-xs"
-      >
+      <div className="print-area max-w-[210mm] mx-auto bg-white p-8 md:p-12 rounded-2xl shadow-md print:shadow-none print:p-0 print:max-w-none text-slate-800 text-xs">
         {/* Header: Company Profile & Document Title */}
         <div className="flex justify-between items-start border-b border-slate-300 pb-6 mb-6">
           <div className="max-w-md space-y-1">
@@ -268,25 +175,17 @@ export default function QuotationPreview({
             <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-left min-w-[240px] space-y-2 text-[11px]">
               <div className="flex justify-between items-center gap-2">
                 <span className="text-slate-500 font-medium shrink-0">เลขที่ / No:</span>
-                {isGeneratingPdf ? (
-                  <span className="font-mono font-bold text-slate-900">
-                    {quotation.quotationNumber || '-'}
-                  </span>
-                ) : (
-                  <>
-                    <span className="hidden print:inline font-mono font-bold text-slate-900">
-                      {quotation.quotationNumber || '-'}
-                    </span>
-                    <input
-                      type="text"
-                      value={quotation.quotationNumber || ''}
-                      onChange={(e) => onUpdateQuotation?.({ ...quotation, quotationNumber: e.target.value })}
-                      placeholder={isReceipt ? 'เช่น RC-202609-001' : 'เช่น QT-202609-001'}
-                      className="print:hidden font-mono font-bold text-slate-900 text-xs py-0.5 px-2 border border-slate-300 hover:border-blue-400 focus:border-blue-500 rounded bg-white text-right w-36 shadow-2xs"
-                      title="คลิกเพื่อแก้ไขเลขที่เอกสาร"
-                    />
-                  </>
-                )}
+                <span className="hidden print:inline font-mono font-bold text-slate-900">
+                  {quotation.quotationNumber || '-'}
+                </span>
+                <input
+                  type="text"
+                  value={quotation.quotationNumber || ''}
+                  onChange={(e) => onUpdateQuotation?.({ ...quotation, quotationNumber: e.target.value })}
+                  placeholder={isReceipt ? 'เช่น RC-202609-001' : 'เช่น QT-202609-001'}
+                  className="print:hidden font-mono font-bold text-slate-900 text-xs py-0.5 px-2 border border-slate-300 hover:border-blue-400 focus:border-blue-500 rounded bg-white text-right w-36 shadow-2xs"
+                  title="คลิกเพื่อแก้ไขเลขที่เอกสาร"
+                />
               </div>
 
               <div className="flex justify-between items-center gap-2">
@@ -294,31 +193,23 @@ export default function QuotationPreview({
                   <Calendar className="w-3.5 h-3.5 text-blue-600 print:hidden" />
                   วันที่ / Date:
                 </span>
-                {isGeneratingPdf ? (
-                  <span className="text-slate-800 font-medium">
+                <span className="hidden print:inline text-slate-800 font-medium">
+                  {formatDate(quotation.issueDate)}
+                </span>
+                <div className="print:hidden flex items-center gap-1.5">
+                  <input
+                    type="date"
+                    value={quotation.issueDate || ''}
+                    onChange={(e) =>
+                      onUpdateQuotation?.({ ...quotation, issueDate: e.target.value })
+                    }
+                    className="text-xs text-slate-800 py-0.5 px-2 border border-slate-300 hover:border-blue-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded bg-white cursor-pointer shadow-2xs"
+                    title="คลิกเพื่อแก้ไขวันที่เอกสาร"
+                  />
+                  <span className="text-[11px] text-slate-700 font-semibold whitespace-nowrap bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
                     {formatDate(quotation.issueDate)}
                   </span>
-                ) : (
-                  <>
-                    <span className="hidden print:inline text-slate-800 font-medium">
-                      {formatDate(quotation.issueDate)}
-                    </span>
-                    <div className="print:hidden flex items-center gap-1.5">
-                      <input
-                        type="date"
-                        value={quotation.issueDate || ''}
-                        onChange={(e) =>
-                          onUpdateQuotation?.({ ...quotation, issueDate: e.target.value })
-                        }
-                        className="text-xs text-slate-800 py-0.5 px-2 border border-slate-300 hover:border-blue-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded bg-white cursor-pointer shadow-2xs"
-                        title="คลิกเพื่อแก้ไขวันที่เอกสาร"
-                      />
-                      <span className="text-[11px] text-slate-700 font-semibold whitespace-nowrap bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
-                        {formatDate(quotation.issueDate)}
-                      </span>
-                    </div>
-                  </>
-                )}
+                </div>
               </div>
 
               {isReceipt ? (
@@ -328,56 +219,40 @@ export default function QuotationPreview({
                       <Calendar className="w-3.5 h-3.5 text-emerald-600 print:hidden" />
                       วันที่ชำระ / Paid:
                     </span>
-                    {isGeneratingPdf ? (
-                      <span className="text-slate-800 font-medium">
+                    <span className="hidden print:inline text-slate-800 font-medium">
+                      {formatDate(quotation.paymentDate || quotation.issueDate)}
+                    </span>
+                    <div className="print:hidden flex items-center gap-1.5">
+                      <input
+                        type="date"
+                        value={quotation.paymentDate || quotation.issueDate || ''}
+                        onChange={(e) =>
+                          onUpdateQuotation?.({ ...quotation, paymentDate: e.target.value })
+                        }
+                        className="text-xs text-slate-800 py-0.5 px-2 border border-slate-300 hover:border-emerald-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded bg-white cursor-pointer shadow-2xs"
+                        title="คลิกเพื่อแก้ไขวันที่ชำระเงิน"
+                      />
+                      <span className="text-[11px] text-emerald-700 font-semibold whitespace-nowrap bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
                         {formatDate(quotation.paymentDate || quotation.issueDate)}
                       </span>
-                    ) : (
-                      <>
-                        <span className="hidden print:inline text-slate-800 font-medium">
-                          {formatDate(quotation.paymentDate || quotation.issueDate)}
-                        </span>
-                        <div className="print:hidden flex items-center gap-1.5">
-                          <input
-                            type="date"
-                            value={quotation.paymentDate || quotation.issueDate || ''}
-                            onChange={(e) =>
-                              onUpdateQuotation?.({ ...quotation, paymentDate: e.target.value })
-                            }
-                            className="text-xs text-slate-800 py-0.5 px-2 border border-slate-300 hover:border-emerald-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 rounded bg-white cursor-pointer shadow-2xs"
-                            title="คลิกเพื่อแก้ไขวันที่ชำระเงิน"
-                          />
-                          <span className="text-[11px] text-emerald-700 font-semibold whitespace-nowrap bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
-                            {formatDate(quotation.paymentDate || quotation.issueDate)}
-                          </span>
-                        </div>
-                      </>
-                    )}
+                    </div>
                   </div>
 
                   <div className="flex justify-between items-center gap-2">
                     <span className="text-slate-500 font-medium shrink-0">วิธีชำระ / Method:</span>
-                    {isGeneratingPdf ? (
-                      <span className="text-slate-800 font-medium">
-                        {quotation.paymentMethod || '-'}
-                      </span>
-                    ) : (
-                      <>
-                        <span className="hidden print:inline text-slate-800 font-medium">
-                          {quotation.paymentMethod || '-'}
-                        </span>
-                        <input
-                          type="text"
-                          value={quotation.paymentMethod || ''}
-                          onChange={(e) =>
-                            onUpdateQuotation?.({ ...quotation, paymentMethod: e.target.value })
-                          }
-                          placeholder="เช่น โอนเงินผ่านธนาคาร"
-                          className="print:hidden text-xs text-slate-800 py-0.5 px-2 border border-slate-300 hover:border-emerald-400 focus:border-emerald-500 rounded bg-white text-right w-36 shadow-2xs font-medium"
-                          title="คลิกเพื่อแก้ไขวิธีชำระเงิน"
-                        />
-                      </>
-                    )}
+                    <span className="hidden print:inline text-slate-800 font-medium">
+                      {quotation.paymentMethod || '-'}
+                    </span>
+                    <input
+                      type="text"
+                      value={quotation.paymentMethod || ''}
+                      onChange={(e) =>
+                        onUpdateQuotation?.({ ...quotation, paymentMethod: e.target.value })
+                      }
+                      placeholder="เช่น โอนเงินผ่านธนาคาร"
+                      className="print:hidden text-xs text-slate-800 py-0.5 px-2 border border-slate-300 hover:border-emerald-400 focus:border-emerald-500 rounded bg-white text-right w-36 shadow-2xs font-medium"
+                      title="คลิกเพื่อแก้ไขวิธีชำระเงิน"
+                    />
                   </div>
                 </>
               ) : (
@@ -386,31 +261,23 @@ export default function QuotationPreview({
                     <Calendar className="w-3.5 h-3.5 text-slate-500 print:hidden" />
                     ยืนราคาถึง / Valid:
                   </span>
-                  {isGeneratingPdf ? (
-                    <span className="text-slate-800 font-medium">
+                  <span className="hidden print:inline text-slate-800 font-medium">
+                    {formatDate(quotation.validUntil)}
+                  </span>
+                  <div className="print:hidden flex items-center gap-1.5">
+                    <input
+                      type="date"
+                      value={quotation.validUntil || ''}
+                      onChange={(e) =>
+                        onUpdateQuotation?.({ ...quotation, validUntil: e.target.value })
+                      }
+                      className="text-xs text-slate-800 py-0.5 px-2 border border-slate-300 hover:border-blue-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded bg-white cursor-pointer shadow-2xs"
+                      title="คลิกเพื่อแก้ไขกำหนดยืนราคาถึง"
+                    />
+                    <span className="text-[11px] text-slate-700 font-semibold whitespace-nowrap bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
                       {formatDate(quotation.validUntil)}
                     </span>
-                  ) : (
-                    <>
-                      <span className="hidden print:inline text-slate-800 font-medium">
-                        {formatDate(quotation.validUntil)}
-                      </span>
-                      <div className="print:hidden flex items-center gap-1.5">
-                        <input
-                          type="date"
-                          value={quotation.validUntil || ''}
-                          onChange={(e) =>
-                            onUpdateQuotation?.({ ...quotation, validUntil: e.target.value })
-                          }
-                          className="text-xs text-slate-800 py-0.5 px-2 border border-slate-300 hover:border-blue-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded bg-white cursor-pointer shadow-2xs"
-                          title="คลิกเพื่อแก้ไขกำหนดยืนราคาถึง"
-                        />
-                        <span className="text-[11px] text-slate-700 font-semibold whitespace-nowrap bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-                          {formatDate(quotation.validUntil)}
-                        </span>
-                      </div>
-                    </>
-                  )}
+                  </div>
                 </div>
               )}
             </div>
