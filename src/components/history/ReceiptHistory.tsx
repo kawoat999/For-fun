@@ -11,6 +11,7 @@ import {
   Search,
   Eye,
   FileText,
+  Truck,
 } from 'lucide-react';
 import { SavedReceipt, ReceiptData, OutputDocType } from '@/lib/types';
 import { getSavedReceipts, deleteSavedReceipt, exportReceiptsToCSV } from '@/lib/storage';
@@ -264,11 +265,22 @@ export default function ReceiptHistory({
                     {/* Actions */}
                     <td className="py-3 px-4 text-center">
                       <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                        {/* Convert to Delivery Order shortcut */}
+                        <button
+                          type="button"
+                          onClick={() => onLoadIntoQuotation(item.receiptData, 'delivery_order')}
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-lg transition-colors border border-indigo-200"
+                          title="ดึงข้อมูลไปเปิดเป็นใบส่งของทันที"
+                        >
+                          <Truck className="w-3.5 h-3.5" />
+                          <span>ใบส่งของ</span>
+                        </button>
+
                         {/* Convert to Receipt shortcut */}
                         <button
                           type="button"
                           onClick={() => onLoadIntoQuotation(item.receiptData, 'receipt')}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-lg transition-colors border border-emerald-200"
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-lg transition-colors border border-emerald-200"
                           title="ดึงข้อมูลไปเปิดเป็นใบเสร็จรับเงินทันที"
                         >
                           <Receipt className="w-3.5 h-3.5" />
@@ -279,7 +291,7 @@ export default function ReceiptHistory({
                         <button
                           type="button"
                           onClick={() => onLoadIntoQuotation(item.receiptData, 'quotation')}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold rounded-lg transition-colors border border-blue-200"
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold rounded-lg transition-colors border border-blue-200"
                           title="ดึงข้อมูลไปเปิดเป็นใบเสนอราคา"
                         >
                           <FileText className="w-3.5 h-3.5" />

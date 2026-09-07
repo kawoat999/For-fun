@@ -15,8 +15,9 @@ import {
   FileSpreadsheet,
   ArrowLeft,
   RotateCcw,
+  Truck,
 } from 'lucide-react';
-import { ReceiptData, ReceiptItem, DocumentType } from '@/lib/types';
+import { ReceiptData, ReceiptItem, DocumentType, OutputDocType } from '@/lib/types';
 import ImageViewer from './ImageViewer';
 import { formatCurrency } from '@/lib/formatters';
 import { saveReceiptToStorage } from '@/lib/storage';
@@ -25,7 +26,7 @@ interface SideBySideReviewProps {
   receiptData: ReceiptData;
   imageUrl?: string | null;
   fileName?: string;
-  onProceedToQuotation: (data: ReceiptData, targetDocType?: 'quotation' | 'receipt') => void;
+  onProceedToQuotation: (data: ReceiptData, targetDocType?: OutputDocType) => void;
   onReset: () => void;
   onSavedToHistory?: () => void;
 }
@@ -192,6 +193,17 @@ export default function SideBySideReview({
                 บันทึกประวัติ (Local Archive)
               </>
             )}
+          </button>
+
+          {/* Convert to Delivery Order */}
+          <button
+            type="button"
+            onClick={() => onProceedToQuotation({ ...data, docType }, 'delivery_order')}
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-sm hover:shadow transition-all"
+            title="ดึงข้อมูลบิลไปสร้างใบส่งของทันที"
+          >
+            <Truck className="w-4 h-4" />
+            สร้างใบส่งของ
           </button>
 
           {/* Convert to Receipt */}

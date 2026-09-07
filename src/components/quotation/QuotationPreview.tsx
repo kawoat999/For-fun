@@ -13,6 +13,7 @@ import {
   Upload,
   Image as ImageIcon,
   Trash2,
+  Truck,
 } from 'lucide-react';
 import { Quotation, OutputDocType } from '@/lib/types';
 import { formatCurrency, formatDate, bahtText } from '@/lib/formatters';
@@ -32,6 +33,7 @@ export default function QuotationPreview({
 }: QuotationPreviewProps) {
   const [copied, setCopied] = useState(false);
   const isReceipt = quotation.docType === 'receipt';
+  const isDeliveryOrder = quotation.docType === 'delivery_order';
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -82,11 +84,20 @@ export default function QuotationPreview({
     window.print();
   };
 
-  const docTitleThai = isReceipt ? 'ใบเสร็จรับเงิน' : 'ใบเสนอราคา';
-  const docTitleEng = isReceipt ? 'RECEIPT' : 'QUOTATION';
+  const docTitleThai = isDeliveryOrder
+    ? 'ใบส่งของ'
+    : isReceipt
+    ? 'ใบเสร็จรับเงิน'
+    : 'ใบเสนอราคา';
+  const docTitleEng = isDeliveryOrder
+    ? 'DELIVERY ORDER'
+    : isReceipt
+    ? 'RECEIPT'
+    : 'QUOTATION';
 
   const handleCopySummary = () => {
-    const text = `${docTitleThai}: ${quotation.quotationNumber}\nลูกค้า/ผู้จ่ายเงิน: ${quotation.client.name}\nยอดรวมทั้งสิ้น: ฿${formatCurrency(grandTotal)} (${bahtText(grandTotal)})\nวันที่: ${quotation.issueDate}`;
+    const customerLabel = isDeliveryOrder ? 'ลูกค้า/ผู้รับสินค้า' : isReceipt ? 'ลูกค้า/ผู้จ่ายเงิน' : 'ลูกค้า';
+    const text = `${docTitleThai}: ${quotation.quotationNumber}\n${customerLabel}: ${quotation.client.name}\nยอดรวมทั้งสิ้น: ฿${formatCurrency(grandTotal)} (${bahtText(grandTotal)})\nวันที่: ${quotation.issueDate}`;
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -122,7 +133,7 @@ export default function QuotationPreview({
               type="button"
               onClick={() => onToggleDocType('quotation')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                !isReceipt
+                quotation.docType === 'quotation'
                   ? 'bg-blue-600 text-white shadow-sm'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
@@ -141,6 +152,18 @@ export default function QuotationPreview({
             >
               <Receipt className="w-3.5 h-3.5" />
               ใบเสร็จรับเงิน (Receipt)
+            </button>
+            <button
+              type="button"
+              onClick={() => onToggleDocType('delivery_order')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                isDeliveryOrder
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Truck className="w-3.5 h-3.5" />
+              ใบส่งของ (Delivery Order)
             </button>
           </div>
         )}
@@ -168,7 +191,11 @@ export default function QuotationPreview({
             type="button"
             onClick={handlePrint}
             className={`inline-flex items-center gap-2 px-5 py-2 text-white text-xs font-bold rounded-lg shadow hover:shadow-md transition-all ${
-              isReceipt ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-blue-600 hover:bg-blue-700'
+              isDeliveryOrder
+                ? 'bg-indigo-600 hover:bg-indigo-700'
+                : isReceipt
+                ? 'bg-emerald-600 hover:bg-emerald-700'
+                : 'bg-blue-600 hover:bg-blue-700'
             }`}
           >
             <Printer className="w-4 h-4" />
@@ -251,7 +278,7 @@ export default function QuotationPreview({
           <div className="text-right space-y-2">
             <div
               className={`inline-block px-4 py-1.5 rounded text-sm font-bold tracking-wider uppercase text-white ${
-                isReceipt ? 'bg-emerald-800' : 'bg-slate-900'
+                isDeliveryOrder ? 'bg-indigo-900' : isReceipt ? 'bg-emerald-800' : 'bg-slate-900'
               }`}
             >
               {docTitleThai}
@@ -269,7 +296,13 @@ export default function QuotationPreview({
                   type="text"
                   value={quotation.quotationNumber || ''}
                   onChange={(e) => onUpdateQuotation?.({ ...quotation, quotationNumber: e.target.value })}
-                  placeholder={isReceipt ? 'เช่น RC-202609-001' : 'เช่น QT-202609-001'}
+                  placeholder={
+                    isDeliveryOrder
+                      ? 'เช่น DO-202609-001'
+                      : isReceipt
+                      ? 'เช่น RC-202609-001'
+                      : 'เช่น QT-202609-001'
+                  }
                   className="print:hidden font-mono font-bold text-slate-900 text-xs py-0.5 px-2 border border-slate-300 hover:border-blue-400 focus:border-blue-500 rounded bg-white text-right w-36 shadow-2xs"
                   title="คลิกเพื่อแก้ไขเลขที่เอกสาร"
                 />
@@ -278,7 +311,7 @@ export default function QuotationPreview({
               <div className="flex justify-between items-center gap-2">
                 <span className="text-slate-500 font-medium shrink-0 flex items-center gap-1">
                   <Calendar className="w-3.5 h-3.5 text-blue-600 print:hidden" />
-                  วันที่ / Date:
+                  {isDeliveryOrder ? 'วันที่ส่งของ / Date:' : 'วันที่ / Date:'}
                 </span>
                 <span className="hidden print:inline text-slate-800 font-medium">
                   {formatDate(quotation.issueDate)}
@@ -299,7 +332,22 @@ export default function QuotationPreview({
                 </div>
               </div>
 
-              {isReceipt ? (
+              {isDeliveryOrder ? (
+                <div className="flex justify-between items-center gap-2">
+                  <span className="text-slate-500 font-medium shrink-0">เลขที่ใบสั่งซื้อ / PO:</span>
+                  <span className="hidden print:inline font-mono font-medium text-slate-800">
+                    {quotation.poNumber || '-'}
+                  </span>
+                  <input
+                    type="text"
+                    value={quotation.poNumber || ''}
+                    onChange={(e) => onUpdateQuotation?.({ ...quotation, poNumber: e.target.value })}
+                    placeholder="เช่น PO-2026-088"
+                    className="print:hidden font-mono text-xs text-slate-800 py-0.5 px-2 border border-slate-300 hover:border-indigo-400 focus:border-indigo-500 rounded bg-white text-right w-36 shadow-2xs font-medium"
+                    title="คลิกเพื่อแก้ไขเลขที่ใบสั่งซื้อ"
+                  />
+                </div>
+              ) : isReceipt ? (
                 <>
                   <div className="flex justify-between items-center gap-2">
                     <span className="text-slate-500 font-medium shrink-0 flex items-center gap-1">
@@ -374,7 +422,11 @@ export default function QuotationPreview({
         {/* Customer Information Block */}
         <div className="mb-6 p-4 rounded-xl border border-slate-200 bg-slate-50/50">
           <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
-            {isReceipt ? 'ข้อมูลผู้จ่ายเงิน / Received From:' : 'ข้อมูลลูกค้า / Bill To:'}
+            {isDeliveryOrder
+              ? 'ข้อมูลผู้รับสินค้า / สถานที่จัดส่ง (Consignee):'
+              : isReceipt
+              ? 'ข้อมูลผู้จ่ายเงิน / Received From:'
+              : 'ข้อมูลลูกค้า / Bill To:'}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1">
@@ -463,15 +515,21 @@ export default function QuotationPreview({
               </div>
             </div>
 
-            {(quotation.paymentTerms || quotation.notes || quotation.paymentMethod) && (
+            {(quotation.paymentTerms || quotation.notes || quotation.paymentMethod || (isDeliveryOrder && quotation.poNumber)) && (
               <div className="pt-3 mt-3 border-t border-slate-200 text-[11px] text-slate-600 space-y-1">
+                {isDeliveryOrder && quotation.poNumber && (
+                  <p>
+                    <span className="font-semibold text-slate-700">เลขที่ใบสั่งซื้ออ้างอิง (PO No.):</span>{' '}
+                    {quotation.poNumber}
+                  </p>
+                )}
                 {isReceipt && quotation.paymentMethod && (
                   <p>
                     <span className="font-semibold text-slate-700">วิธีการชำระเงิน:</span>{' '}
                     {quotation.paymentMethod}
                   </p>
                 )}
-                {!isReceipt && quotation.paymentTerms && (
+                {!isReceipt && !isDeliveryOrder && quotation.paymentTerms && (
                   <p>
                     <span className="font-semibold text-slate-700">เงื่อนไขการชำระเงิน:</span>{' '}
                     {quotation.paymentTerms}
@@ -522,7 +580,11 @@ export default function QuotationPreview({
               <span>ยอดเงินรวมทั้งสิ้น:</span>
               <span
                 className={`font-mono text-base font-bold ${
-                  isReceipt ? 'text-emerald-700' : 'text-blue-700'
+                  isDeliveryOrder
+                    ? 'text-indigo-700'
+                    : isReceipt
+                    ? 'text-emerald-700'
+                    : 'text-blue-700'
                 }`}
               >
                 {formatCurrency(grandTotal)} ฿
@@ -531,9 +593,43 @@ export default function QuotationPreview({
           </div>
         </div>
 
-        {/* Signature Blocks - Dynamically tailored for Quotation vs Receipt */}
+        {/* Signature Blocks - Dynamically tailored for Quotation vs Receipt vs Delivery Order */}
         <div className="avoid-break mt-12 grid grid-cols-2 gap-8 pt-4">
-          {isReceipt ? (
+          {isDeliveryOrder ? (
+            <>
+              <div className="text-center space-y-3">
+                <div className="text-[11px] text-slate-600 font-medium">
+                  ในนาม {quotation.client.name || 'ผู้รับสินค้า'} (Consignee)
+                </div>
+                <div className="text-[10px] text-slate-500 italic py-1 border-y border-dashed border-slate-200">
+                  ได้รับสินค้าตามรายการข้างต้นถูกต้อง ครบถ้วน ในสภาพเรียบร้อยแล้ว
+                </div>
+                <div className="pt-6">
+                  <div className="w-48 mx-auto border-b border-slate-400"></div>
+                  <div className="text-[11px] text-slate-500 mt-1.5">
+                    (......................................................)
+                    <p className="mt-1">ผู้รับสินค้า / วันที่ ....../....../......</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-center space-y-3">
+                <div className="text-[11px] text-slate-600 font-medium">
+                  ในนาม {quotation.seller.name || 'ผู้ส่งสินค้า'} (Shipper)
+                </div>
+                <div className="text-[10px] text-transparent select-none py-1">
+                  &nbsp;
+                </div>
+                <div className="pt-6">
+                  <div className="w-48 mx-auto border-b border-slate-400"></div>
+                  <div className="text-[11px] text-slate-500 mt-1.5">
+                    (......................................................)
+                    <p className="mt-1">ผู้ส่งสินค้า / วันที่ ....../....../......</p>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : isReceipt ? (
             <>
               <div className="text-center space-y-10">
                 <div className="text-[11px] text-slate-600 font-medium">

@@ -8,7 +8,7 @@ export interface ReceiptItem {
 }
 
 export type DocumentType = 'expense' | 'income';
-export type OutputDocType = 'quotation' | 'receipt';
+export type OutputDocType = 'quotation' | 'receipt' | 'delivery_order';
 
 export interface ReceiptData {
   docType?: DocumentType; // บิลรายจ่าย หรือ บิลรายรับ
@@ -49,12 +49,13 @@ export interface CompanyInfo {
 
 export interface Quotation {
   id: string;
-  docType: OutputDocType; // 'quotation' = ใบเสนอราคา, 'receipt' = ใบเสร็จรับเงิน
+  docType: OutputDocType; // 'quotation' = ใบเสนอราคา, 'receipt' = ใบเสร็จรับเงิน, 'delivery_order' = ใบส่งของ
   quotationNumber: string;
   issueDate: string;
   validUntil: string;
   paymentDate?: string;
   paymentMethod?: string;
+  poNumber?: string; // เลขที่ใบสั่งซื้อ (PO No.)
   seller: CompanyInfo;
   client: CompanyInfo;
   items: ReceiptItem[];

@@ -16,6 +16,7 @@ import {
   Upload,
   Image as ImageIcon,
   X,
+  Truck,
 } from 'lucide-react';
 import { Quotation, ReceiptItem, OutputDocType } from '@/lib/types';
 import { formatCurrency, bahtText } from '@/lib/formatters';
@@ -36,6 +37,7 @@ export default function QuotationEditor({
   scannedImagePreview,
 }: QuotationEditorProps) {
   const isReceipt = quotation.docType === 'receipt';
+  const isDeliveryOrder = quotation.docType === 'delivery_order';
 
   // Handle company logo upload
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -73,22 +75,19 @@ export default function QuotationEditor({
     }
   };
 
-  // Toggle Document Type between Quotation and Receipt
+  // Toggle Document Type between Quotation, Receipt, and Delivery Order
   const handleToggleDocType = (type: OutputDocType) => {
     let newDocNumber = quotation.quotationNumber;
     if (newDocNumber) {
       if (type === 'receipt') {
-        if (newDocNumber.startsWith('QT-')) {
-          newDocNumber = newDocNumber.replace(/^QT-/, 'RC-');
-        } else if (!newDocNumber.startsWith('RC-')) {
-          newDocNumber = `RC-${newDocNumber}`;
-        }
+        newDocNumber = newDocNumber.replace(/^(QT|DO)-/, 'RC-');
+        if (!newDocNumber.startsWith('RC-')) newDocNumber = `RC-${newDocNumber}`;
+      } else if (type === 'delivery_order') {
+        newDocNumber = newDocNumber.replace(/^(QT|RC)-/, 'DO-');
+        if (!newDocNumber.startsWith('DO-')) newDocNumber = `DO-${newDocNumber}`;
       } else {
-        if (newDocNumber.startsWith('RC-')) {
-          newDocNumber = newDocNumber.replace(/^RC-/, 'QT-');
-        } else if (!newDocNumber.startsWith('QT-')) {
-          newDocNumber = `QT-${newDocNumber}`;
-        }
+        newDocNumber = newDocNumber.replace(/^(RC|DO)-/, 'QT-');
+        if (!newDocNumber.startsWith('QT-')) newDocNumber = `QT-${newDocNumber}`;
       }
     }
 
@@ -173,12 +172,13 @@ export default function QuotationEditor({
         </button>
 
         {/* 1-Click Document Type Switcher */}
+        {/* 1-Click Document Type Switcher */}
         <div className="flex items-center bg-slate-100 p-1 rounded-xl">
           <button
             type="button"
             onClick={() => handleToggleDocType('quotation')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              !isReceipt
+              quotation.docType === 'quotation'
                 ? 'bg-blue-600 text-white shadow-sm'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
@@ -198,6 +198,18 @@ export default function QuotationEditor({
             <Receipt className="w-3.5 h-3.5" />
             ใบเสร็จรับเงิน (Receipt)
           </button>
+          <button
+            type="button"
+            onClick={() => handleToggleDocType('delivery_order')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              isDeliveryOrder
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Truck className="w-3.5 h-3.5" />
+            ใบส่งของ (Delivery Order)
+          </button>
         </div>
 
         <div className="flex items-center gap-3">
@@ -205,7 +217,11 @@ export default function QuotationEditor({
             type="button"
             onClick={onPreview}
             className={`inline-flex items-center gap-2 px-5 py-2.5 text-white text-xs font-bold rounded-lg shadow-sm hover:shadow transition-all ${
-              isReceipt ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-blue-600 hover:bg-blue-700'
+              isDeliveryOrder
+                ? 'bg-indigo-600 hover:bg-indigo-700'
+                : isReceipt
+                ? 'bg-emerald-600 hover:bg-emerald-700'
+                : 'bg-blue-600 hover:bg-blue-700'
             }`}
           >
             ดูตัวอย่าง & สั่งพิมพ์ A4
@@ -236,31 +252,51 @@ export default function QuotationEditor({
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <span className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                {isReceipt ? (
+                {isDeliveryOrder ? (
+                  <Truck className="w-4 h-4 text-indigo-600" />
+                ) : isReceipt ? (
                   <Receipt className="w-4 h-4 text-emerald-600" />
                 ) : (
                   <FileSpreadsheet className="w-4 h-4 text-blue-600" />
                 )}
-                {isReceipt ? 'ข้อมูลใบเสร็จรับเงิน' : 'ข้อมูลใบเสนอราคา'}
+                {isDeliveryOrder
+                  ? 'ข้อมูลใบส่งของ'
+                  : isReceipt
+                  ? 'ข้อมูลใบเสร็จรับเงิน'
+                  : 'ข้อมูลใบเสนอราคา'}
               </span>
               <span
                 className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                  isReceipt ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700'
+                  isDeliveryOrder
+                    ? 'bg-indigo-50 text-indigo-700'
+                    : isReceipt
+                    ? 'bg-emerald-50 text-emerald-700'
+                    : 'bg-blue-50 text-blue-700'
                 }`}
               >
-                {isReceipt ? 'RECEIPT' : 'QUOTATION'}
+                {isDeliveryOrder ? 'DELIVERY ORDER' : isReceipt ? 'RECEIPT' : 'QUOTATION'}
               </span>
             </div>
 
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">
-                {isReceipt ? 'เลขที่ใบเสร็จรับเงิน (Receipt No.)' : 'เลขที่ใบเสนอราคา (Quotation No.)'}
+                {isDeliveryOrder
+                  ? 'เลขที่ใบส่งของ (Delivery Order No.)'
+                  : isReceipt
+                  ? 'เลขที่ใบเสร็จรับเงิน (Receipt No.)'
+                  : 'เลขที่ใบเสนอราคา (Quotation No.)'}
               </label>
               <input
                 type="text"
                 value={quotation.quotationNumber}
                 onChange={(e) => onChange({ ...quotation, quotationNumber: e.target.value })}
-                placeholder={isReceipt ? 'เช่น RC-202609-001' : 'เช่น QT-202609-001'}
+                placeholder={
+                  isDeliveryOrder
+                    ? 'เช่น DO-202609-001'
+                    : isReceipt
+                    ? 'เช่น RC-202609-001'
+                    : 'เช่น QT-202609-001'
+                }
                 className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono"
               />
             </div>
@@ -268,7 +304,11 @@ export default function QuotationEditor({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">
-                  {isReceipt ? 'วันที่ออกใบเสร็จ' : 'วันที่ออกเอกสาร'}
+                  {isDeliveryOrder
+                    ? 'วันที่ส่งของ (Delivery Date)'
+                    : isReceipt
+                    ? 'วันที่ออกใบเสร็จ'
+                    : 'วันที่ออกเอกสาร'}
                 </label>
                 <input
                   type="date"
@@ -280,15 +320,29 @@ export default function QuotationEditor({
 
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">
-                  {isReceipt ? 'วันที่ชำระเงิน (Payment Date)' : 'กำหนดยืนราคาถึง'}
+                  {isDeliveryOrder
+                    ? 'วันที่นัดส่งมอบ'
+                    : isReceipt
+                    ? 'วันที่ชำระเงิน (Payment Date)'
+                    : 'กำหนดยืนราคาถึง'}
                 </label>
                 <input
                   type="date"
-                  value={isReceipt ? quotation.paymentDate || quotation.issueDate : quotation.validUntil}
+                  value={
+                    isDeliveryOrder
+                      ? quotation.issueDate
+                      : isReceipt
+                      ? quotation.paymentDate || quotation.issueDate
+                      : quotation.validUntil
+                  }
                   onChange={(e) =>
                     onChange({
                       ...quotation,
-                      [isReceipt ? 'paymentDate' : 'validUntil']: e.target.value,
+                      [isDeliveryOrder
+                        ? 'issueDate'
+                        : isReceipt
+                        ? 'paymentDate'
+                        : 'validUntil']: e.target.value,
                     })
                   }
                   className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -296,42 +350,57 @@ export default function QuotationEditor({
               </div>
             </div>
 
-            {/* Payment Method field (specifically active for Receipt) */}
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">
-                {isReceipt ? 'วิธีการชำระเงิน (Payment Method)' : 'เงื่อนไขการชำระเงิน (Payment Terms)'}
-              </label>
-              <input
-                type="text"
-                value={isReceipt ? quotation.paymentMethod || '' : quotation.paymentTerms}
-                onChange={(e) =>
-                  onChange({
-                    ...quotation,
-                    [isReceipt ? 'paymentMethod' : 'paymentTerms']: e.target.value,
-                  })
-                }
-                placeholder={
-                  isReceipt
-                    ? 'เช่น โอนเงินผ่านธนาคาร, PromptPay, เงินสด'
-                    : 'เช่น เครดิต 30 วัน, มัดจำ 50%, ชำระทันทีเมื่อส่งมอบงาน'
-                }
-                className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-              {isReceipt && (
-                <div className="flex gap-1.5 mt-1.5">
-                  {['โอนเงินผ่านธนาคาร', 'เงินสด', 'PromptPay', 'บัตรเครดิต'].map((pm) => (
-                    <button
-                      key={pm}
-                      type="button"
-                      onClick={() => onChange({ ...quotation, paymentMethod: pm })}
-                      className="text-[10px] px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded transition-colors"
-                    >
-                      {pm}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            {/* PO Number for Delivery Order OR Payment Method / Terms */}
+            {isDeliveryOrder ? (
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">
+                  เลขที่ใบสั่งซื้อ (PO No. / เอกสารอ้างอิง)
+                </label>
+                <input
+                  type="text"
+                  value={quotation.poNumber || ''}
+                  onChange={(e) => onChange({ ...quotation, poNumber: e.target.value })}
+                  placeholder="เช่น PO-2026-088, สั่งซื้อผ่านแชท, Order #123"
+                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 font-mono"
+                />
+              </div>
+            ) : (
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">
+                  {isReceipt ? 'วิธีการชำระเงิน (Payment Method)' : 'เงื่อนไขการชำระเงิน (Payment Terms)'}
+                </label>
+                <input
+                  type="text"
+                  value={isReceipt ? quotation.paymentMethod || '' : quotation.paymentTerms}
+                  onChange={(e) =>
+                    onChange({
+                      ...quotation,
+                      [isReceipt ? 'paymentMethod' : 'paymentTerms']: e.target.value,
+                    })
+                  }
+                  placeholder={
+                    isReceipt
+                      ? 'เช่น โอนเงินผ่านธนาคาร, PromptPay, เงินสด'
+                      : 'เช่น เครดิต 30 วัน, มัดจำ 50%, ชำระทันทีเมื่อส่งมอบงาน'
+                  }
+                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+                {isReceipt && (
+                  <div className="flex gap-1.5 mt-1.5">
+                    {['โอนเงินผ่านธนาคาร', 'เงินสด', 'PromptPay', 'บัตรเครดิต'].map((pm) => (
+                      <button
+                        key={pm}
+                        type="button"
+                        onClick={() => onChange({ ...quotation, paymentMethod: pm })}
+                        className="text-[10px] px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded transition-colors"
+                      >
+                        {pm}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">
@@ -351,7 +420,11 @@ export default function QuotationEditor({
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
             <div className="flex items-center gap-2 text-sm font-bold text-slate-800 pb-2 border-b border-slate-100">
               <Building2 className="w-4 h-4 text-blue-600" />
-              {isReceipt ? 'ข้อมูลผู้รับเงิน (Payee / บริษัทของคุณ)' : 'ข้อมูลผู้ออกเอกสาร (ผู้ขาย / ฝ่ายเสนอราคา)'}
+              {isDeliveryOrder
+                ? 'ข้อมูลผู้ส่งสินค้า (ผู้จัดส่ง / บริษัทของคุณ)'
+                : isReceipt
+                ? 'ข้อมูลผู้รับเงิน (Payee / บริษัทของคุณ)'
+                : 'ข้อมูลผู้ออกเอกสาร (ผู้ขาย / ฝ่ายเสนอราคา)'}
             </div>
 
             {/* Company Logo Upload Block */}
@@ -489,13 +562,21 @@ export default function QuotationEditor({
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
             <div className="flex items-center gap-2 text-sm font-bold text-slate-800 pb-2 border-b border-slate-100">
               <User className="w-4 h-4 text-emerald-600" />
-              {isReceipt ? 'ข้อมูลผู้จ่ายเงิน / ลูกค้า (Payer)' : 'ข้อมูลลูกค้า / ผู้รับการเสนอราคา (Client)'}
+              {isDeliveryOrder
+                ? 'ข้อมูลผู้รับสินค้า / สถานที่จัดส่ง (Consignee)'
+                : isReceipt
+                ? 'ข้อมูลผู้จ่ายเงิน / ลูกค้า (Payer)'
+                : 'ข้อมูลลูกค้า / ผู้รับการเสนอราคา (Client)'}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs text-slate-500 mb-1">
-                  {isReceipt ? 'ชื่อผู้จ่ายเงิน / ลูกค้า' : 'ชื่อบริษัท / ลูกค้า'}
+                  {isDeliveryOrder
+                    ? 'ชื่อผู้รับสินค้า / หน่วยงาน'
+                    : isReceipt
+                    ? 'ชื่อผู้จ่ายเงิน / ลูกค้า'
+                    : 'ชื่อบริษัท / ลูกค้า'}
                 </label>
                 <input
                   type="text"
@@ -507,7 +588,9 @@ export default function QuotationEditor({
                     })
                   }
                   placeholder={
-                    isReceipt
+                    isDeliveryOrder
+                      ? 'เช่น บริษัท ผู้รับสินค้า จำกัด หรือ ชื่อผู้รับของ'
+                      : isReceipt
                       ? 'เช่น บริษัท ลูกค้า จำกัด หรือ ชื่อผู้จ่ายเงิน'
                       : 'เช่น บริษัท ลูกค้า จำกัด หรือ ชื่อผู้รับการเสนอราคา'
                   }

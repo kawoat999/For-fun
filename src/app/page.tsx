@@ -11,6 +11,7 @@ import {
   Receipt,
   FileText,
   Cloud,
+  Truck,
 } from 'lucide-react';
 import FileUploader from '@/components/ocr/FileUploader';
 import SideBySideReview from '@/components/ocr/SideBySideReview';
@@ -54,6 +55,9 @@ export default function Home() {
     authorizedBy: '',
   });
 
+  const isReceipt = quotation.docType === 'receipt';
+  const isDeliveryOrder = quotation.docType === 'delivery_order';
+
   const refreshHistoryCount = () => {
     const list = getSavedReceipts();
     setHistoryCount(list.length);
@@ -79,12 +83,13 @@ export default function Home() {
     setCurrentStep('review');
   };
 
-  // Convert ReceiptData into Quotation or Receipt and proceed to editor
+  // Convert ReceiptData into Quotation, Receipt, or Delivery Order and proceed to editor
   const handleProceedToDocument = (
     data: ReceiptData,
     targetDocType: OutputDocType = 'quotation'
   ) => {
     const isRc = targetDocType === 'receipt';
+    const isDo = targetDocType === 'delivery_order';
     const clientInfo = {
       ...DEFAULT_CLIENT_INFO,
       name: data.merchantName || DEFAULT_CLIENT_INFO.name,
@@ -93,7 +98,10 @@ export default function Home() {
       phone: data.phone || DEFAULT_CLIENT_INFO.phone,
     };
 
-    const docNum = data.receiptNumber || '';
+    let docNum = data.receiptNumber || '';
+    if (docNum && isDo && !docNum.startsWith('DO-')) {
+      docNum = `DO-${docNum}`;
+    }
 
     setQuotation((prev) => ({
       ...prev,
@@ -118,10 +126,13 @@ export default function Home() {
       let newNum = prev.quotationNumber;
       if (newNum) {
         if (type === 'receipt') {
-          newNum = newNum.replace(/^QT-/, 'RC-');
+          newNum = newNum.replace(/^(QT|DO)-/, 'RC-');
           if (!newNum.startsWith('RC-')) newNum = `RC-${newNum}`;
+        } else if (type === 'delivery_order') {
+          newNum = newNum.replace(/^(QT|RC)-/, 'DO-');
+          if (!newNum.startsWith('DO-')) newNum = `DO-${newNum}`;
         } else {
-          newNum = newNum.replace(/^RC-/, 'QT-');
+          newNum = newNum.replace(/^(RC|DO)-/, 'QT-');
           if (!newNum.startsWith('QT-')) newNum = `QT-${newNum}`;
         }
       }
@@ -139,8 +150,6 @@ export default function Home() {
     setScannedImage(saved.imageUrl || null);
     setCurrentStep('review');
   };
-
-  const isReceipt = quotation.docType === 'receipt';
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
@@ -201,34 +210,56 @@ export default function Home() {
               <span>2. ตรวจสอบบิล</span>
             </button>
 
-            {/* 3. แก้ไขใบเสนอราคา / แก้ไขใบเสร็จ */}
+            {/* 3. แก้ไขใบเสนอราคา / แก้ไขใบเสร็จ / แก้ไขใบส่งของ */}
             <button
               onClick={() => setCurrentStep('quotation-edit')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all shrink-0 ${
                 currentStep === 'quotation-edit'
-                  ? isReceipt
+                  ? isDeliveryOrder
+                    ? 'bg-white text-indigo-600 shadow-sm'
+                    : isReceipt
                     ? 'bg-white text-emerald-600 shadow-sm'
                     : 'bg-white text-blue-600 shadow-sm'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              {isReceipt ? <Receipt className="w-3.5 h-3.5" /> : <FileEdit className="w-3.5 h-3.5" />}
-              <span>{isReceipt ? '3. แก้ไขใบเสร็จ' : '3. แก้ไขใบเสนอราคา'}</span>
+              {isDeliveryOrder ? (
+                <Truck className="w-3.5 h-3.5" />
+              ) : isReceipt ? (
+                <Receipt className="w-3.5 h-3.5" />
+              ) : (
+                <FileEdit className="w-3.5 h-3.5" />
+              )}
+              <span>
+                {isDeliveryOrder
+                  ? '3. แก้ไขใบส่งของ'
+                  : isReceipt
+                  ? '3. แก้ไขใบเสร็จ'
+                  : '3. แก้ไขใบเสนอราคา'}
+              </span>
             </button>
 
-            {/* 4. พิมพ์ใบเสร็จ A4 / พิมพ์ใบเสนอราคา A4 */}
+            {/* 4. พิมพ์ใบส่งของ / ใบเสร็จ / ใบเสนอราคา A4 */}
             <button
               onClick={() => setCurrentStep('quotation-preview')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all shrink-0 ${
                 currentStep === 'quotation-preview'
-                  ? isReceipt
+                  ? isDeliveryOrder
+                    ? 'bg-white text-indigo-600 shadow-sm'
+                    : isReceipt
                     ? 'bg-white text-emerald-600 shadow-sm'
                     : 'bg-white text-blue-600 shadow-sm'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>{isReceipt ? '4. พิมพ์ใบเสร็จ A4' : '4. พิมพ์ใบเสนอราคา A4'}</span>
+              <span>
+                {isDeliveryOrder
+                  ? '4. พิมพ์ใบส่งของ A4'
+                  : isReceipt
+                  ? '4. พิมพ์ใบเสร็จ A4'
+                  : '4. พิมพ์ใบเสนอราคา A4'}
+              </span>
             </button>
 
             {/* 5. ประวัติบิล */}
