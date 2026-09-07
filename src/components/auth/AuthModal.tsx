@@ -65,7 +65,8 @@ export default function AuthModal() {
   };
 
   const handleQuickDemo = () => {
-    demoLogin('kawoat999@example.com', 'Kawoat');
+    const targetEmail = email.trim() || 'kawoat1471@gmail.com';
+    demoLogin(targetEmail, name.trim() || targetEmail.split('@')[0]);
   };
 
   return (
@@ -135,9 +136,21 @@ export default function AuthModal() {
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-              <span>{error}</span>
+            <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl space-y-2">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </div>
+              {email.trim() && (
+                <button
+                  type="button"
+                  onClick={() => demoLogin(email.trim(), name.trim() || email.trim().split('@')[0])}
+                  className="w-full py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg text-xs transition-colors flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
+                >
+                  <Zap className="w-3.5 h-3.5" />
+                  <span>เข้าใช้งานด้วย {email.trim()} ทันที</span>
+                </button>
+              )}
             </div>
           )}
 
@@ -225,6 +238,11 @@ export default function AuthModal() {
               </>
             )}
           </button>
+          {mode === 'signin' && (
+            <p className="text-[11px] text-slate-400 text-center">
+              💡 เข้าสู่ระบบได้ทันที (หากยังไม่มีบัญชี ระบบจะสร้างให้อัตโนมัติ)
+            </p>
+          )}
         </form>
 
         {/* Quick Demo Login Option */}

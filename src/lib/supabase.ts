@@ -43,18 +43,23 @@ export function getSupabaseClient(): SupabaseClient | null {
   return client;
 }
 
-function getCurrentUserId(): string | null {
+function getCurrentUser(): { id: string; email: string } | null {
   if (typeof window === 'undefined') return null;
   try {
     const raw = localStorage.getItem('receipt_app_auth_user_v1');
     if (raw) {
       const u = JSON.parse(raw);
-      return u.id || null;
+      return { id: u.id || '', email: (u.email || '').toLowerCase() };
     }
   } catch (e) {
     // ignore
   }
   return null;
+}
+
+function getCurrentUserId(): string | null {
+  const user = getCurrentUser();
+  return user?.id || null;
 }
 
 /**
@@ -67,7 +72,8 @@ export async function syncReceiptToSupabase(
   const supabase = getSupabaseClient();
   if (!supabase) return false;
 
-  const effectiveUserId = userId || saved.userId || getCurrentUserId();
+  const currentUser = getCurrentUser();
+  const effectiveUserId = userId || saved.userId || currentUser?.id || null;
 
   try {
     const payload: any = {
@@ -77,6 +83,7 @@ export async function syncReceiptToSupabase(
       receipt_data: {
         ...saved.receiptData,
         userId: effectiveUserId,
+        userEmail: currentUser?.email || undefined,
       },
       image_url: saved.imageUrl,
     };
@@ -112,7 +119,8 @@ export async function fetchReceiptsFromSupabase(
   const supabase = getSupabaseClient();
   if (!supabase) return [];
 
-  const effectiveUserId = userId !== undefined ? userId : getCurrentUserId();
+  const currentUser = getCurrentUser();
+  const effectiveUserId = userId !== undefined ? userId : currentUser?.id || null;
   if (!effectiveUserId) {
     // Guests without an account do not fetch cloud receipts of other users
     return [];
@@ -126,7 +134,7 @@ export async function fetchReceiptsFromSupabase(
       .eq('user_id', effectiveUserId)
       .order('created_at', { ascending: false });
 
-    // 2. If user_id column does not exist on the database yet, query all and filter by receipt_data.userId
+    // 2. If user_id column does not exist on the database yet, query all and filter by receipt_data.userId or receipt_data.userEmail
     if (error && (error.message?.includes('user_id') || error.code === 'PGRST204')) {
       const allRows = await supabase
         .from('receipts')
@@ -135,7 +143,11 @@ export async function fetchReceiptsFromSupabase(
 
       if (!allRows.error && allRows.data) {
         data = allRows.data.filter(
-          (row: any) => row.receipt_data?.userId === effectiveUserId
+          (row: any) =>
+            row.receipt_data?.userId === effectiveUserId ||
+            (currentUser?.email &&
+              (row.receipt_data?.userEmail === currentUser.email ||
+                row.receipt_data?.customer?.email === currentUser.email))
         );
         error = null;
       }

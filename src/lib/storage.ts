@@ -62,6 +62,24 @@ export function getSavedReceipts(userId?: string | null): SavedReceipt[] {
       }
     }
 
+    // Auto-claim receipts created in guest mode before login
+    if (effectiveId) {
+      const guestRaw = localStorage.getItem('receipt_archive_guest');
+      if (guestRaw) {
+        try {
+          const guestParsed = JSON.parse(guestRaw);
+          if (Array.isArray(guestParsed) && guestParsed.length > 0) {
+            const claimed = guestParsed.map((item: any) => ({ ...item, userId: effectiveId }));
+            safeSaveToLocalStorage(claimed, effectiveId);
+            localStorage.removeItem('receipt_archive_guest');
+            return claimed;
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+
     return [];
   } catch (error) {
     console.error('Failed to load receipts from localStorage', error);
