@@ -83,11 +83,37 @@ export default function Home() {
     setCurrentStep('review');
   };
 
-  // Convert ReceiptData into Quotation, Receipt, or Delivery Order and proceed to editor
+  // Convert ReceiptData into Quotation, Receipt, or Delivery Order and proceed to editor or preview
   const handleProceedToDocument = (
     data: ReceiptData,
-    targetDocType: OutputDocType = 'quotation'
+    targetDocType: OutputDocType = 'quotation',
+    targetStep: Step = 'quotation-edit',
+    fullQuotation?: Quotation
   ) => {
+    if (fullQuotation) {
+      let docNum = fullQuotation.quotationNumber;
+      if (docNum) {
+        if (targetDocType === 'receipt') {
+          docNum = docNum.replace(/^(QT|DO)-/, 'RC-');
+          if (!docNum.startsWith('RC-')) docNum = `RC-${docNum}`;
+        } else if (targetDocType === 'delivery_order') {
+          docNum = docNum.replace(/^(QT|RC)-/, 'DO-');
+          if (!docNum.startsWith('DO-')) docNum = `DO-${docNum}`;
+        } else {
+          docNum = docNum.replace(/^(RC|DO)-/, 'QT-');
+          if (!docNum.startsWith('QT-')) docNum = `QT-${docNum}`;
+        }
+      }
+
+      setQuotation({
+        ...fullQuotation,
+        docType: targetDocType,
+        quotationNumber: docNum,
+      });
+      setCurrentStep(targetStep);
+      return;
+    }
+
     const isRc = targetDocType === 'receipt';
     const isDo = targetDocType === 'delivery_order';
     const clientInfo = {
@@ -99,8 +125,14 @@ export default function Home() {
     };
 
     let docNum = data.receiptNumber || '';
-    if (docNum && isDo && !docNum.startsWith('DO-')) {
-      docNum = `DO-${docNum}`;
+    if (docNum) {
+      if (isDo && !docNum.startsWith('DO-')) {
+        docNum = `DO-${docNum}`;
+      } else if (isRc && !docNum.startsWith('RC-')) {
+        docNum = `RC-${docNum}`;
+      } else if (!isDo && !isRc && !docNum.startsWith('QT-')) {
+        docNum = `QT-${docNum}`;
+      }
     }
 
     setQuotation((prev) => ({
@@ -117,7 +149,7 @@ export default function Home() {
       notes: data.notes || prev.notes,
     }));
 
-    setCurrentStep('quotation-edit');
+    setCurrentStep(targetStep);
   };
 
   // Switch docType from Preview toolbar

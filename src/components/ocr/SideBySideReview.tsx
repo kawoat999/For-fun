@@ -147,6 +147,14 @@ export default function SideBySideReview({
   const vatAmount = (taxable * (Number(data.taxRate) || 0)) / 100;
   const grandTotal = taxable + vatAmount;
 
+  // Handle Proceed and Auto-Save to history
+  const handleProceedWithAutoSave = (targetType: OutputDocType) => {
+    // Auto-save to history so it's guaranteed to appear in 5. ประวัติบิล
+    saveReceiptToStorage(data, docType, imageUrl, targetType);
+    if (onSavedToHistory) onSavedToHistory();
+    onProceedToQuotation({ ...data, docType }, targetType);
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Banner & Action Header */}
@@ -198,7 +206,7 @@ export default function SideBySideReview({
           {/* Convert to Delivery Order */}
           <button
             type="button"
-            onClick={() => onProceedToQuotation({ ...data, docType }, 'delivery_order')}
+            onClick={() => handleProceedWithAutoSave('delivery_order')}
             className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-sm hover:shadow transition-all"
             title="ดึงข้อมูลบิลไปสร้างใบส่งของทันที"
           >
@@ -209,7 +217,7 @@ export default function SideBySideReview({
           {/* Convert to Receipt */}
           <button
             type="button"
-            onClick={() => onProceedToQuotation({ ...data, docType }, 'receipt')}
+            onClick={() => handleProceedWithAutoSave('receipt')}
             className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm hover:shadow transition-all"
           >
             <Receipt className="w-4 h-4" />
@@ -219,7 +227,7 @@ export default function SideBySideReview({
           {/* Convert to Quotation */}
           <button
             type="button"
-            onClick={() => onProceedToQuotation({ ...data, docType }, 'quotation')}
+            onClick={() => handleProceedWithAutoSave('quotation')}
             className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-sm hover:shadow transition-all"
           >
             <FileSpreadsheet className="w-4 h-4" />

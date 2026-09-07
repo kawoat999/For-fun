@@ -12,13 +12,27 @@ import {
   Eye,
   FileText,
   Truck,
+  Printer,
+  RefreshCw,
 } from 'lucide-react';
-import { SavedReceipt, ReceiptData, OutputDocType } from '@/lib/types';
-import { getSavedReceipts, deleteSavedReceipt, exportReceiptsToCSV } from '@/lib/storage';
+import { SavedReceipt, ReceiptData, OutputDocType, Quotation } from '@/lib/types';
+import {
+  getSavedReceipts,
+  deleteSavedReceipt,
+  exportReceiptsToCSV,
+  exportSingleReceiptToCSV,
+  syncWithSupabase,
+} from '@/lib/storage';
 import { formatCurrency, formatDate } from '@/lib/formatters';
+import { isSupabaseConfigured } from '@/lib/supabase';
 
 interface ReceiptHistoryProps {
-  onLoadIntoQuotation: (receipt: ReceiptData, targetDocType?: OutputDocType) => void;
+  onLoadIntoQuotation: (
+    receipt: ReceiptData,
+    targetDocType?: OutputDocType,
+    targetStep?: 'quotation-edit' | 'quotation-preview',
+    fullQuotation?: Quotation
+  ) => void;
   onViewReceipt: (receipt: SavedReceipt) => void;
 }
 
@@ -29,10 +43,28 @@ export default function ReceiptHistory({
   const [receipts, setReceipts] = useState<SavedReceipt[]>([]);
   const [filterType, setFilterType] = useState<'all' | 'expense' | 'income'>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isSyncing, setIsSyncing] = useState(false);
 
-  // Load receipts on mount
-  useEffect(() => {
+  // Load receipts from local storage and sync with Supabase on mount
+  const refreshData = async () => {
     setReceipts(getSavedReceipts());
+    if (isSupabaseConfigured()) {
+      setIsSyncing(true);
+      try {
+        const synced = await syncWithSupabase();
+        if (synced && synced.length > 0) {
+          setReceipts(synced);
+        }
+      } catch (err) {
+        console.warn('Sync failed', err);
+      } finally {
+        setIsSyncing(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    refreshData();
   }, []);
 
   const handleDelete = (id: string) => {
@@ -44,6 +76,10 @@ export default function ReceiptHistory({
 
   const handleExportCSV = () => {
     exportReceiptsToCSV(filteredReceipts);
+  };
+
+  const handleExportSingle = (item: SavedReceipt) => {
+    exportSingleReceiptToCSV(item);
   };
 
   // Filter receipts
@@ -118,7 +154,9 @@ export default function ReceiptHistory({
             <p className="text-xl font-bold font-mono text-slate-900 mt-0.5">
               {receipts.length} รายการ
             </p>
-            <p className="text-[11px] text-slate-400 mt-0.5">บันทึกในเครื่อง (Local Storage)</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              {isSupabaseConfigured() ? 'บันทึกในเครื่อง + Cloud Supabase' : 'บันทึกในเครื่อง (Local Storage)'}
+            </p>
           </div>
         </div>
       </div>
@@ -163,8 +201,8 @@ export default function ReceiptHistory({
         </div>
 
         {/* Search & Export Buttons */}
-        <div className="flex items-center gap-2 w-full md:w-auto">
-          <div className="relative flex-1 md:w-60">
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
+          <div className="relative flex-1 md:w-60 min-w-[180px]">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
@@ -175,14 +213,30 @@ export default function ReceiptHistory({
             />
           </div>
 
+          {/* Cloud Sync Button */}
+          {isSupabaseConfigured() && (
+            <button
+              type="button"
+              onClick={refreshData}
+              disabled={isSyncing}
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-all shrink-0"
+              title="ซิงค์ข้อมูลล่าสุดกับ Supabase Cloud"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-blue-600' : 'text-slate-500'}`} />
+              <span className="hidden sm:inline">{isSyncing ? 'กำลังซิงค์...' : 'ซิงค์ Cloud'}</span>
+            </button>
+          )}
+
+          {/* Export All CSV Button */}
           <button
             type="button"
             disabled={filteredReceipts.length === 0}
             onClick={handleExportCSV}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-semibold rounded-lg shadow-sm transition-all shrink-0"
+            title="ดาวน์โหลดข้อมูลประวัติทั้งหมดเป็นไฟล์ CSV สรุป"
           >
             <Download className="w-3.5 h-3.5" />
-            ส่งออก CSV (Excel)
+            <span>ส่งออก CSV (Excel)</span>
           </button>
         </div>
       </div>
@@ -193,49 +247,62 @@ export default function ReceiptHistory({
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 text-slate-600 font-semibold uppercase tracking-wider border-b border-slate-200">
               <tr>
-                <th className="py-3 px-4 w-12 text-center">#</th>
-                <th className="py-3 px-4">ประเภท</th>
-                <th className="py-3 px-4">วันที่บิล / บันทึกเมื่อ</th>
-                <th className="py-3 px-4">ชื่อร้านค้า / คู่ค้า</th>
-                <th className="py-3 px-4">เลขที่บิล</th>
-                <th className="py-3 px-4 text-center">จำนวนรายการ</th>
-                <th className="py-3 px-4 text-right">ยอดเงินสุทธิ</th>
-                <th className="py-3 px-4 text-center">จัดการ & แปลงเอกสาร</th>
+                <th className="py-3 px-3 w-10 text-center">#</th>
+                <th className="py-3 px-3">ประเภท</th>
+                <th className="py-3 px-3">วันที่บิล / บันทึกเมื่อ</th>
+                <th className="py-3 px-3">ชื่อร้านค้า / ลูกค้า</th>
+                <th className="py-3 px-3">เลขที่เอกสาร</th>
+                <th className="py-3 px-3 text-center">รายการ</th>
+                <th className="py-3 px-3 text-right">ยอดเงินสุทธิ</th>
+                <th className="py-3 px-3 text-center">พิมพ์ / ดาวน์โหลด & จัดการ</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredReceipts.map((item, index) => {
                 const isExpense = item.docType === 'expense';
+                const outputType = item.outputDocType || (isExpense ? 'receipt' : 'quotation');
+                const isDO = outputType === 'delivery_order';
+                const isRC = outputType === 'receipt';
+
                 return (
                   <tr key={item.id} className="hover:bg-slate-50/75 transition-colors">
-                    <td className="py-3 px-4 text-center text-slate-400 font-medium">
+                    <td className="py-3 px-3 text-center text-slate-400 font-medium">
                       {index + 1}
                     </td>
 
-                    {/* Doc Type Badge */}
-                    <td className="py-3 px-4">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${
-                          isExpense
-                            ? 'bg-red-50 text-red-700 border border-red-200'
-                            : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                        }`}
-                      >
-                        {isExpense ? 'บิลรายจ่าย' : 'บิลรายรับ'}
-                      </span>
+                    {/* Doc Type Badges */}
+                    <td className="py-3 px-3">
+                      <div className="flex flex-col gap-1 items-start">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            isDO
+                              ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                              : isRC
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : 'bg-blue-50 text-blue-700 border border-blue-200'
+                          }`}
+                        >
+                          {isDO ? 'ใบส่งของ' : isRC ? 'ใบเสร็จรับเงิน' : 'ใบเสนอราคา'}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-medium">
+                          {isExpense ? 'บิลรายจ่าย' : 'บิลรายรับ'}
+                        </span>
+                      </div>
                     </td>
 
                     {/* Date */}
-                    <td className="py-3 px-4 text-slate-600">
-                      <div>{item.receiptData.date || formatDate(item.createdAt)}</div>
+                    <td className="py-3 px-3 text-slate-600">
+                      <div className="font-medium text-slate-800">
+                        {item.receiptData.date || formatDate(item.createdAt)}
+                      </div>
                       <div className="text-[10px] text-slate-400 mt-0.5">
                         บันทึก: {formatDate(item.createdAt)}
                       </div>
                     </td>
 
-                    {/* Merchant */}
-                    <td className="py-3 px-4">
-                      <div className="font-semibold text-slate-800">
+                    {/* Merchant / Client */}
+                    <td className="py-3 px-3">
+                      <div className="font-semibold text-slate-800 line-clamp-1 max-w-[180px]">
                         {item.receiptData.merchantName || '-'}
                       </div>
                       {item.receiptData.taxId && (
@@ -245,75 +312,117 @@ export default function ReceiptHistory({
                       )}
                     </td>
 
-                    {/* Receipt No */}
-                    <td className="py-3 px-4 font-mono text-slate-600">
-                      {item.receiptData.receiptNumber || '-'}
+                    {/* Document / Receipt No */}
+                    <td className="py-3 px-3 font-mono text-slate-600">
+                      <div className="font-semibold">{item.receiptData.receiptNumber || '-'}</div>
+                      {item.quotationData?.poNumber && (
+                        <div className="text-[10px] text-slate-400">PO: {item.quotationData.poNumber}</div>
+                      )}
                     </td>
 
                     {/* Items count */}
-                    <td className="py-3 px-4 text-center">
-                      <span className="px-2 py-1 bg-slate-100 rounded text-slate-700 font-medium text-[11px]">
+                    <td className="py-3 px-3 text-center">
+                      <span className="px-2 py-0.5 bg-slate-100 rounded text-slate-700 font-medium text-[11px]">
                         {(item.receiptData.items || []).length} รายการ
                       </span>
                     </td>
 
                     {/* Total Amount */}
-                    <td className="py-3 px-4 text-right font-mono font-bold text-sm text-slate-900">
+                    <td className="py-3 px-3 text-right font-mono font-bold text-sm text-slate-900">
                       ฿{formatCurrency(item.receiptData.totalAmount || 0)}
                     </td>
 
-                    {/* Actions */}
-                    <td className="py-3 px-4 text-center">
+                    {/* Actions: Download / Print / Export */}
+                    <td className="py-3 px-3 text-center">
                       <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                        {/* Convert to Delivery Order shortcut */}
+                        {/* 1. Open / Print Receipt A4 Immediately */}
                         <button
                           type="button"
-                          onClick={() => onLoadIntoQuotation(item.receiptData, 'delivery_order')}
-                          className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-lg transition-colors border border-indigo-200"
-                          title="ดึงข้อมูลไปเปิดเป็นใบส่งของทันที"
+                          onClick={() =>
+                            onLoadIntoQuotation(
+                              item.receiptData,
+                              'receipt',
+                              'quotation-preview',
+                              item.quotationData
+                            )
+                          }
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-2xs transition-all"
+                          title="เปิดเป็นใบเสร็จรับเงิน A4 พร้อมสั่งพิมพ์หรือบันทึก PDF ทันที"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                          <span>พิมพ์/โหลดใบเสร็จ</span>
+                        </button>
+
+                        {/* 2. Download Itemized CSV for this specific bill */}
+                        <button
+                          type="button"
+                          onClick={() => handleExportSingle(item)}
+                          className="inline-flex items-center gap-1 px-2 py-1.5 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 hover:border-emerald-300 text-xs font-semibold rounded-lg transition-colors"
+                          title="ดาวน์โหลดรายการบิลนี้เป็นไฟล์ CSV สำหรับ Excel"
+                        >
+                          <Download className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>โหลด CSV</span>
+                        </button>
+
+                        {/* 3. Open as Delivery Order shortcut */}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onLoadIntoQuotation(
+                              item.receiptData,
+                              'delivery_order',
+                              'quotation-preview',
+                              item.quotationData
+                            )
+                          }
+                          className="inline-flex items-center gap-1 px-2 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-lg transition-colors border border-indigo-200"
+                          title="เปิดเป็นใบส่งของ A4"
                         >
                           <Truck className="w-3.5 h-3.5" />
-                          <span>ใบส่งของ</span>
+                          <span className="hidden lg:inline">ใบส่งของ</span>
                         </button>
 
-                        {/* Convert to Receipt shortcut */}
+                        {/* 4. Open as Quotation shortcut */}
                         <button
                           type="button"
-                          onClick={() => onLoadIntoQuotation(item.receiptData, 'receipt')}
-                          className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-lg transition-colors border border-emerald-200"
-                          title="ดึงข้อมูลไปเปิดเป็นใบเสร็จรับเงินทันที"
-                        >
-                          <Receipt className="w-3.5 h-3.5" />
-                          <span>แปลงเป็นใบเสร็จ</span>
-                        </button>
-
-                        {/* Convert to Quotation */}
-                        <button
-                          type="button"
-                          onClick={() => onLoadIntoQuotation(item.receiptData, 'quotation')}
-                          className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold rounded-lg transition-colors border border-blue-200"
-                          title="ดึงข้อมูลไปเปิดเป็นใบเสนอราคา"
+                          onClick={() =>
+                            onLoadIntoQuotation(
+                              item.receiptData,
+                              'quotation',
+                              'quotation-preview',
+                              item.quotationData
+                            )
+                          }
+                          className="inline-flex items-center gap-1 px-2 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold rounded-lg transition-colors border border-blue-200"
+                          title="เปิดเป็นใบเสนอราคา A4"
                         >
                           <FileText className="w-3.5 h-3.5" />
-                          <span>ใบเสนอราคา</span>
+                          <span className="hidden lg:inline">ใบเสนอราคา</span>
                         </button>
 
-                        {/* View in Review */}
+                        {/* 5. Edit in Editor */}
                         <button
                           type="button"
-                          onClick={() => onViewReceipt(item)}
+                          onClick={() =>
+                            onLoadIntoQuotation(
+                              item.receiptData,
+                              item.outputDocType || 'receipt',
+                              'quotation-edit',
+                              item.quotationData
+                            )
+                          }
                           className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          title="ดูรายละเอียด / แก้ไขบิล"
+                          title="แก้ไขข้อมูลในแบบฟอร์ม"
                         >
                           <Eye className="w-4 h-4" />
                         </button>
 
-                        {/* Delete */}
+                        {/* 6. Delete */}
                         <button
                           type="button"
                           onClick={() => handleDelete(item.id)}
                           className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="ลบรายการ"
+                          title="ลบรายการนี้ออกจากประวัติ"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -329,7 +438,7 @@ export default function ReceiptHistory({
                     <Receipt className="w-10 h-10 mx-auto text-slate-300 mb-2" />
                     <p className="text-sm font-semibold text-slate-600">ยังไม่มีประวัติรายการบิล</p>
                     <p className="text-xs text-slate-400 mt-1">
-                      เมื่อท่านสแกนบิลและกด &ldquo;บันทึกประวัติ (Local Archive)&rdquo; ข้อมูลจะปรากฏที่นี่
+                      เมื่อท่านสแกนบิลหรือสร้างเอกสาร ข้อมูลจะถูกบันทึกลงประวัติโดยอัตโนมัติ
                     </p>
                   </td>
                 </tr>

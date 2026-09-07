@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Plus,
   Trash2,
@@ -17,9 +17,12 @@ import {
   Image as ImageIcon,
   X,
   Truck,
+  Save,
+  CheckCircle2,
 } from 'lucide-react';
 import { Quotation, ReceiptItem, OutputDocType } from '@/lib/types';
 import { formatCurrency, bahtText } from '@/lib/formatters';
+import { saveQuotationToStorage } from '@/lib/storage';
 
 interface QuotationEditorProps {
   quotation: Quotation;
@@ -36,8 +39,15 @@ export default function QuotationEditor({
   onBackToScan,
   scannedImagePreview,
 }: QuotationEditorProps) {
+  const [savedSuccess, setSavedSuccess] = useState(false);
   const isReceipt = quotation.docType === 'receipt';
   const isDeliveryOrder = quotation.docType === 'delivery_order';
+
+  const handleSaveToHistory = () => {
+    saveQuotationToStorage(quotation, scannedImagePreview);
+    setSavedSuccess(true);
+    setTimeout(() => setSavedSuccess(false), 2500);
+  };
 
   // Handle company logo upload
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -212,7 +222,30 @@ export default function QuotationEditor({
           </button>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleSaveToHistory}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-bold rounded-lg transition-all shadow-sm ${
+              savedSuccess
+                ? 'bg-emerald-600 text-white'
+                : 'bg-slate-800 hover:bg-slate-900 text-white'
+            }`}
+            title="บันทึกข้อมูลเอกสารนี้ลงในประวัติบิล"
+          >
+            {savedSuccess ? (
+              <>
+                <CheckCircle2 className="w-4 h-4" />
+                บันทึกสำเร็จ!
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4" />
+                บันทึกประวัติ
+              </>
+            )}
+          </button>
+
           <button
             type="button"
             onClick={onPreview}

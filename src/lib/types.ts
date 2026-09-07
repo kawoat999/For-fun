@@ -32,7 +32,9 @@ export interface SavedReceipt {
   id: string;
   createdAt: string;
   docType: DocumentType;
+  outputDocType?: OutputDocType;
   receiptData: ReceiptData;
+  quotationData?: Quotation;
   imageUrl?: string | null;
 }
 

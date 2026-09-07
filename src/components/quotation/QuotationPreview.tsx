@@ -14,9 +14,13 @@ import {
   Image as ImageIcon,
   Trash2,
   Truck,
+  Save,
+  CheckCircle2,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { Quotation, OutputDocType } from '@/lib/types';
 import { formatCurrency, formatDate, bahtText } from '@/lib/formatters';
+import { saveQuotationToStorage, exportSingleReceiptToCSV } from '@/lib/storage';
 
 interface QuotationPreviewProps {
   quotation: Quotation;
@@ -32,6 +36,7 @@ export default function QuotationPreview({
   onUpdateQuotation,
 }: QuotationPreviewProps) {
   const [copied, setCopied] = useState(false);
+  const [savedHistory, setSavedHistory] = useState(false);
   const isReceipt = quotation.docType === 'receipt';
   const isDeliveryOrder = quotation.docType === 'delivery_order';
 
@@ -81,7 +86,20 @@ export default function QuotationPreview({
   const grandTotal = taxableAmount + vatAmount - withholdingTaxAmount;
 
   const handlePrint = () => {
+    // Auto-save to history when printing / saving PDF
+    saveQuotationToStorage(quotation);
     window.print();
+  };
+
+  const handleSaveToHistory = () => {
+    saveQuotationToStorage(quotation);
+    setSavedHistory(true);
+    setTimeout(() => setSavedHistory(false), 2500);
+  };
+
+  const handleExportCSV = () => {
+    const saved = saveQuotationToStorage(quotation);
+    exportSingleReceiptToCSV(saved);
   };
 
   const docTitleThai = isDeliveryOrder
@@ -169,6 +187,41 @@ export default function QuotationPreview({
         )}
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* Save to History Button */}
+          <button
+            type="button"
+            onClick={handleSaveToHistory}
+            className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-lg transition-all shadow-xs ${
+              savedHistory
+                ? 'bg-emerald-600 text-white'
+                : 'bg-slate-800 hover:bg-slate-900 text-white'
+            }`}
+            title="บันทึกข้อมูลเอกสารนี้ลงในประวัติบิล"
+          >
+            {savedHistory ? (
+              <>
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                บันทึกสำเร็จ!
+              </>
+            ) : (
+              <>
+                <Save className="w-3.5 h-3.5" />
+                บันทึกประวัติ
+              </>
+            )}
+          </button>
+
+          {/* Export CSV Button */}
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors"
+            title="ดาวน์โหลดรายละเอียดบิลนี้เป็นไฟล์ CSV สำหรับเปิดใน Excel"
+          >
+            <Download className="w-3.5 h-3.5" />
+            ดาวน์โหลด CSV
+          </button>
+
           <button
             type="button"
             onClick={handleCopySummary}
@@ -184,7 +237,7 @@ export default function QuotationPreview({
             className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
           >
             <Download className="w-3.5 h-3.5" />
-            ดาวน์โหลด JSON
+            JSON
           </button>
 
           <button
