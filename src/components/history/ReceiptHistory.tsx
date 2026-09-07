@@ -14,6 +14,9 @@ import {
   Truck,
   Printer,
   RefreshCw,
+  AlertCircle,
+  LogIn,
+  ShieldCheck,
 } from 'lucide-react';
 import { SavedReceipt, ReceiptData, OutputDocType, Quotation } from '@/lib/types';
 import {
@@ -25,6 +28,7 @@ import {
 } from '@/lib/storage';
 import { formatCurrency, formatDate } from '@/lib/formatters';
 import { isSupabaseConfigured } from '@/lib/supabase';
+import { useAuth } from '@/context/AuthContext';
 
 interface ReceiptHistoryProps {
   onLoadIntoQuotation: (
@@ -40,19 +44,21 @@ export default function ReceiptHistory({
   onLoadIntoQuotation,
   onViewReceipt,
 }: ReceiptHistoryProps) {
+  const { user, openAuthModal } = useAuth();
   const [receipts, setReceipts] = useState<SavedReceipt[]>([]);
   const [filterType, setFilterType] = useState<'all' | 'expense' | 'income'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // Load receipts from local storage and sync with Supabase on mount
+  // Load receipts from local storage and sync with Supabase on mount or when user changes
   const refreshData = async () => {
-    setReceipts(getSavedReceipts());
-    if (isSupabaseConfigured()) {
+    const currentUserId = user?.id || null;
+    setReceipts(getSavedReceipts(currentUserId));
+    if (isSupabaseConfigured() && currentUserId) {
       setIsSyncing(true);
       try {
-        const synced = await syncWithSupabase();
-        if (synced && synced.length > 0) {
+        const synced = await syncWithSupabase(currentUserId);
+        if (synced) {
           setReceipts(synced);
         }
       } catch (err) {
@@ -65,11 +71,11 @@ export default function ReceiptHistory({
 
   useEffect(() => {
     refreshData();
-  }, []);
+  }, [user?.id]);
 
   const handleDelete = (id: string) => {
     if (window.confirm('คุณต้องการลบรายการนี้ออกจากประวัติใช่หรือไม่?')) {
-      const updated = deleteSavedReceipt(id);
+      const updated = deleteSavedReceipt(id, user?.id || null);
       setReceipts(updated);
     }
   };
@@ -104,6 +110,49 @@ export default function ReceiptHistory({
 
   return (
     <div className="space-y-6">
+      {/* User Account Status & Privacy Banner */}
+      {user ? (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 text-xs shadow-2xs">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+              <ShieldCheck className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="font-bold text-emerald-900">
+                ประวัติบิลของบัญชี: {user.name || user.email}
+              </p>
+              <p className="text-[11px] text-emerald-700">
+                ข้อมูลบิลและเอกสารทั้งหมดถูกแยกจัดเก็บเฉพาะบัญชีของคุณอย่างปลอดภัย เมื่อออกจากระบบข้อมูลจะถูกซ่อนอัตโนมัติ
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 text-xs shadow-2xs">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0">
+              <AlertCircle className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="font-bold text-amber-900">
+                คุณยังไม่ได้เข้าสู่ระบบ (Guest Mode)
+              </p>
+              <p className="text-[11px] text-amber-700">
+                ประวัติบิลของแต่ละบัญชีผู้ใช้จะถูกแยกเก็บอย่างเป็นส่วนตัว หากต้องการดูหรือเข้าถึงประวัติบิลของคุณ กรุณาเข้าสู่ระบบ
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={openAuthModal}
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-xs transition-colors shrink-0"
+          >
+            <LogIn className="w-3.5 h-3.5" />
+            <span>เข้าสู่ระบบ / สมัครสมาชิก</span>
+          </button>
+        </div>
+      )}
+
       {/* Summary KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Total Expense Card */}
@@ -436,9 +485,13 @@ export default function ReceiptHistory({
                 <tr>
                   <td colSpan={8} className="text-center py-12 text-slate-400">
                     <Receipt className="w-10 h-10 mx-auto text-slate-300 mb-2" />
-                    <p className="text-sm font-semibold text-slate-600">ยังไม่มีประวัติรายการบิล</p>
-                    <p className="text-xs text-slate-400 mt-1">
-                      เมื่อท่านสแกนบิลหรือสร้างเอกสาร ข้อมูลจะถูกบันทึกลงประวัติโดยอัตโนมัติ
+                    <p className="text-sm font-semibold text-slate-600">
+                      {user ? 'ยังไม่มีประวัติรายการบิลในบัญชีนี้' : 'ยังไม่มีประวัติรายการบิลในโหมดผู้เยี่ยมชม'}
+                    </p>
+                    <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                      {user
+                        ? 'เมื่อท่านสแกนบิลหรือสร้างเอกสารในขณะที่เข้าสู่ระบบ ข้อมูลจะถูกบันทึกผูกกับบัญชีนี้โดยอัตโนมัติ'
+                        : 'ข้อมูลบิลของแต่ละบัญชีจะถูกแยกเก็บอย่างปลอดภัย หากต้องการดูประวัติบิลของคุณ กรุณาเข้าสู่ระบบ'}
                     </p>
                   </td>
                 </tr>

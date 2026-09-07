@@ -29,8 +29,12 @@ CREATE TABLE IF NOT EXISTS receipts (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   doc_type TEXT NOT NULL,
   receipt_data JSONB NOT NULL,
-  image_url TEXT
+  image_url TEXT,
+  user_id TEXT
 );
+
+-- เพิ่มคอลัมน์ user_id หากมีตารางเดิมอยู่แล้ว
+ALTER TABLE receipts ADD COLUMN IF NOT EXISTS user_id TEXT;
 
 ALTER TABLE receipts ENABLE ROW LEVEL SECURITY;
 

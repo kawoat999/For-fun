@@ -43,27 +43,60 @@ export function getSupabaseClient(): SupabaseClient | null {
   return client;
 }
 
+function getCurrentUserId(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem('receipt_app_auth_user_v1');
+    if (raw) {
+      const u = JSON.parse(raw);
+      return u.id || null;
+    }
+  } catch (e) {
+    // ignore
+  }
+  return null;
+}
+
 /**
- * Sync a receipt to Supabase table `receipts`
+ * Sync a receipt to Supabase table `receipts` isolated by userId
  */
-export async function syncReceiptToSupabase(saved: SavedReceipt): Promise<boolean> {
+export async function syncReceiptToSupabase(
+  saved: SavedReceipt,
+  userId?: string | null
+): Promise<boolean> {
   const supabase = getSupabaseClient();
   if (!supabase) return false;
 
+  const effectiveUserId = userId || saved.userId || getCurrentUserId();
+
   try {
-    const { error } = await supabase.from('receipts').upsert({
+    const payload: any = {
       id: saved.id,
       created_at: saved.createdAt,
       doc_type: saved.docType,
-      receipt_data: saved.receiptData,
+      receipt_data: {
+        ...saved.receiptData,
+        userId: effectiveUserId,
+      },
       image_url: saved.imageUrl,
-    });
+    };
 
-    if (error) {
-      console.error('Supabase upsert error:', error);
-      return false;
+    if (effectiveUserId) {
+      payload.user_id = effectiveUserId;
     }
-    return true;
+
+    const { error } = await supabase.from('receipts').upsert(payload);
+    if (!error) return true;
+
+    // If user_id column does not exist on table yet, retry without it
+    if (error && (error.message?.includes('user_id') || error.code === 'PGRST204')) {
+      delete payload.user_id;
+      const retry = await supabase.from('receipts').upsert(payload);
+      return !retry.error;
+    }
+
+    console.error('Supabase upsert error:', error);
+    return false;
   } catch (err) {
     console.error('Supabase sync error:', err);
     return false;
@@ -71,17 +104,42 @@ export async function syncReceiptToSupabase(saved: SavedReceipt): Promise<boolea
 }
 
 /**
- * Fetch all receipts from Supabase table `receipts`
+ * Fetch receipts from Supabase table `receipts` isolated by userId
  */
-export async function fetchReceiptsFromSupabase(): Promise<SavedReceipt[]> {
+export async function fetchReceiptsFromSupabase(
+  userId?: string | null
+): Promise<SavedReceipt[]> {
   const supabase = getSupabaseClient();
   if (!supabase) return [];
 
+  const effectiveUserId = userId !== undefined ? userId : getCurrentUserId();
+  if (!effectiveUserId) {
+    // Guests without an account do not fetch cloud receipts of other users
+    return [];
+  }
+
   try {
-    const { data, error } = await supabase
+    // 1. Try querying with user_id column
+    let { data, error } = await supabase
       .from('receipts')
       .select('*')
+      .eq('user_id', effectiveUserId)
       .order('created_at', { ascending: false });
+
+    // 2. If user_id column does not exist on the database yet, query all and filter by receipt_data.userId
+    if (error && (error.message?.includes('user_id') || error.code === 'PGRST204')) {
+      const allRows = await supabase
+        .from('receipts')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!allRows.error && allRows.data) {
+        data = allRows.data.filter(
+          (row: any) => row.receipt_data?.userId === effectiveUserId
+        );
+        error = null;
+      }
+    }
 
     if (error) {
       console.error('Supabase fetch error:', error);
@@ -90,8 +148,10 @@ export async function fetchReceiptsFromSupabase(): Promise<SavedReceipt[]> {
 
     return (data || []).map((row: any) => ({
       id: row.id,
+      userId: row.user_id || row.receipt_data?.userId,
       createdAt: row.created_at,
       docType: row.doc_type,
+      outputDocType: row.receipt_data?.docType,
       receiptData: row.receipt_data,
       imageUrl: row.image_url,
     }));

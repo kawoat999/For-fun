@@ -2,18 +2,67 @@ import { SavedReceipt, ReceiptData, DocumentType, Quotation, OutputDocType } fro
 import { formatCurrency, formatDate } from './formatters';
 import { syncReceiptToSupabase, deleteReceiptFromSupabase, fetchReceiptsFromSupabase } from './supabase';
 
-const STORAGE_KEY = 'receipt_ocr_archive_v1';
+const LEGACY_STORAGE_KEY = 'receipt_ocr_archive_v1';
 
 /**
- * Load all saved receipts from localStorage safely
+ * Get active logged in user ID from localStorage
  */
-export function getSavedReceipts(): SavedReceipt[] {
-  if (typeof window === 'undefined') return [];
+export function getActiveUserId(): string | null {
+  if (typeof window === 'undefined') return null;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    const raw = localStorage.getItem('receipt_app_auth_user_v1');
+    if (raw) {
+      const u = JSON.parse(raw);
+      return u.id || null;
+    }
+  } catch (e) {
+    // ignore
+  }
+  return null;
+}
+
+/**
+ * Get user-scoped storage key
+ */
+export function getStorageKey(userId?: string | null): string {
+  const effectiveId = userId !== undefined ? userId : getActiveUserId();
+  if (effectiveId) {
+    return `receipt_archive_user_${effectiveId}`;
+  }
+  return 'receipt_archive_guest';
+}
+
+/**
+ * Load all saved receipts from localStorage safely, scoped to current user
+ */
+export function getSavedReceipts(userId?: string | null): SavedReceipt[] {
+  if (typeof window === 'undefined') return [];
+  const effectiveId = userId !== undefined ? userId : getActiveUserId();
+  const key = getStorageKey(effectiveId);
+
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    }
+
+    // Auto-migrate from legacy un-scoped key if exists
+    const legacyRaw = localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (legacyRaw) {
+      const legacyParsed = JSON.parse(legacyRaw);
+      if (Array.isArray(legacyParsed) && legacyParsed.length > 0) {
+        if (effectiveId) {
+          // Claim legacy receipts for this logged in user
+          const claimed = legacyParsed.map((item) => ({ ...item, userId: effectiveId }));
+          safeSaveToLocalStorage(claimed, effectiveId);
+          localStorage.removeItem(LEGACY_STORAGE_KEY);
+          return claimed;
+        }
+      }
+    }
+
+    return [];
   } catch (error) {
     console.error('Failed to load receipts from localStorage', error);
     return [];
@@ -21,10 +70,11 @@ export function getSavedReceipts(): SavedReceipt[] {
 }
 
 /**
- * Resilient localStorage writer with multi-tier quota fallback
+ * Resilient localStorage writer with multi-tier quota fallback, scoped to user
  */
-function safeSaveToLocalStorage(receipts: SavedReceipt[]): boolean {
+function safeSaveToLocalStorage(receipts: SavedReceipt[], userId?: string | null): boolean {
   if (typeof window === 'undefined') return false;
+  const key = getStorageKey(userId);
 
   // Don't allow massive raw base64 images to blow the 5MB browser quota
   const sanitized = receipts.map((item) => {
@@ -36,19 +86,19 @@ function safeSaveToLocalStorage(receipts: SavedReceipt[]): boolean {
   });
 
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
+    localStorage.setItem(key, JSON.stringify(sanitized));
     return true;
   } catch (err1) {
     console.warn('Storage quota exceeded, retrying without any images...', err1);
     try {
       const withoutImg = receipts.map((item) => ({ ...item, imageUrl: null }));
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(withoutImg));
+      localStorage.setItem(key, JSON.stringify(withoutImg));
       return true;
     } catch (err2) {
       console.warn('Storage quota still exceeded, trimming to latest 30 records...', err2);
       try {
         const trimmed = receipts.slice(0, 30).map((item) => ({ ...item, imageUrl: null }));
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
+        localStorage.setItem(key, JSON.stringify(trimmed));
         return true;
       } catch (err3) {
         console.error('Critical failure writing receipts to localStorage', err3);
@@ -59,17 +109,20 @@ function safeSaveToLocalStorage(receipts: SavedReceipt[]): boolean {
 }
 
 /**
- * Save OCR scanned receipt data to storage
+ * Save OCR scanned receipt data to storage, isolated by user
  */
 export function saveReceiptToStorage(
   receiptData: ReceiptData,
   docType: DocumentType = 'expense',
   imageUrl?: string | null,
-  outputDocType?: OutputDocType
+  outputDocType?: OutputDocType,
+  userId?: string | null
 ): SavedReceipt {
-  const current = getSavedReceipts();
+  const effectiveUserId = userId !== undefined ? userId : getActiveUserId();
+  const current = getSavedReceipts(effectiveUserId);
   const newReceipt: SavedReceipt = {
     id: `rcpt-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    userId: effectiveUserId || undefined,
     createdAt: new Date().toISOString(),
     docType,
     outputDocType: outputDocType || (docType === 'expense' ? 'receipt' : 'quotation'),
@@ -81,10 +134,10 @@ export function saveReceiptToStorage(
   };
 
   const updated = [newReceipt, ...current];
-  safeSaveToLocalStorage(updated);
+  safeSaveToLocalStorage(updated, effectiveUserId);
 
   // Asynchronously sync to Supabase if configured
-  syncReceiptToSupabase(newReceipt).catch((err) => {
+  syncReceiptToSupabase(newReceipt, effectiveUserId).catch((err) => {
     console.warn('Background sync to Supabase failed', err);
   });
 
@@ -92,13 +145,15 @@ export function saveReceiptToStorage(
 }
 
 /**
- * Save or update a Quotation / Receipt / Delivery Order in History
+ * Save or update a Quotation / Receipt / Delivery Order in History, isolated by user
  */
 export function saveQuotationToStorage(
   quotation: Quotation,
-  imageUrl?: string | null
+  imageUrl?: string | null,
+  userId?: string | null
 ): SavedReceipt {
-  const current = getSavedReceipts();
+  const effectiveUserId = userId !== undefined ? userId : getActiveUserId();
+  const current = getSavedReceipts(effectiveUserId);
   const isReceipt = quotation.docType === 'receipt';
 
   const docType: DocumentType = isReceipt ? 'income' : 'income';
@@ -142,6 +197,7 @@ export function saveQuotationToStorage(
 
   const savedRecord: SavedReceipt = {
     id: existingIndex >= 0 ? current[existingIndex].id : targetId,
+    userId: effectiveUserId || undefined,
     createdAt: existingIndex >= 0 ? current[existingIndex].createdAt : new Date().toISOString(),
     docType,
     outputDocType: quotation.docType,
@@ -158,10 +214,10 @@ export function saveQuotationToStorage(
     updatedList = [savedRecord, ...current];
   }
 
-  safeSaveToLocalStorage(updatedList);
+  safeSaveToLocalStorage(updatedList, effectiveUserId);
 
   // Sync to Supabase in background
-  syncReceiptToSupabase(savedRecord).catch((err) => {
+  syncReceiptToSupabase(savedRecord, effectiveUserId).catch((err) => {
     console.warn('Background sync to Supabase failed', err);
   });
 
@@ -169,12 +225,13 @@ export function saveQuotationToStorage(
 }
 
 /**
- * Delete a saved receipt by ID
+ * Delete a saved receipt by ID, isolated by user
  */
-export function deleteSavedReceipt(id: string): SavedReceipt[] {
-  const current = getSavedReceipts();
+export function deleteSavedReceipt(id: string, userId?: string | null): SavedReceipt[] {
+  const effectiveUserId = userId !== undefined ? userId : getActiveUserId();
+  const current = getSavedReceipts(effectiveUserId);
   const updated = current.filter((r) => r.id !== id);
-  safeSaveToLocalStorage(updated);
+  safeSaveToLocalStorage(updated, effectiveUserId);
 
   // Delete from Supabase in background
   deleteReceiptFromSupabase(id).catch((err) => {
@@ -185,15 +242,21 @@ export function deleteSavedReceipt(id: string): SavedReceipt[] {
 }
 
 /**
- * Sync all records between Supabase and LocalStorage
+ * Sync all records between Supabase and LocalStorage for current user
  */
-export async function syncWithSupabase(): Promise<SavedReceipt[]> {
-  const cloudReceipts = await fetchReceiptsFromSupabase();
-  if (!cloudReceipts || cloudReceipts.length === 0) {
-    return getSavedReceipts();
+export async function syncWithSupabase(userId?: string | null): Promise<SavedReceipt[]> {
+  const effectiveUserId = userId !== undefined ? userId : getActiveUserId();
+  if (!effectiveUserId) {
+    return getSavedReceipts(null);
   }
 
-  const localReceipts = getSavedReceipts();
+  const cloudReceipts = await fetchReceiptsFromSupabase(effectiveUserId);
+  const localReceipts = getSavedReceipts(effectiveUserId);
+
+  if (!cloudReceipts || cloudReceipts.length === 0) {
+    return localReceipts;
+  }
+
   const localMap = new Map<string, SavedReceipt>(localReceipts.map((r) => [r.id, r]));
 
   // Merge cloud items into local map
@@ -207,7 +270,7 @@ export async function syncWithSupabase(): Promise<SavedReceipt[]> {
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
-  safeSaveToLocalStorage(merged);
+  safeSaveToLocalStorage(merged, effectiveUserId);
   return merged;
 }
 

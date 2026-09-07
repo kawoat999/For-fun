@@ -19,7 +19,7 @@ import ReceiptHistory from '@/components/history/ReceiptHistory';
 import QuotationEditor from '@/components/quotation/QuotationEditor';
 import QuotationPreview from '@/components/quotation/QuotationPreview';
 import SupabaseModal from '@/components/ui/SupabaseModal';
-import { AuthProvider } from '@/context/AuthContext';
+import { AuthProvider, useAuth } from '@/context/AuthContext';
 import AuthModal from '@/components/auth/AuthModal';
 import UserMenu from '@/components/auth/UserMenu';
 import { isSupabaseConfigured } from '@/lib/supabase';
@@ -38,6 +38,7 @@ export default function Home() {
 }
 
 function ReceiptApp() {
+  const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState<Step>('scan');
   const [scannedImage, setScannedImage] = useState<string | null>(null);
   const [activeReceipt, setActiveReceipt] = useState<ReceiptData | null>(null);
@@ -69,13 +70,17 @@ function ReceiptApp() {
   const isReceipt = quotation.docType === 'receipt';
   const isDeliveryOrder = quotation.docType === 'delivery_order';
 
-  const refreshHistoryCount = () => {
-    const list = getSavedReceipts();
+  const refreshHistoryCount = (userId?: string | null) => {
+    const effectiveId = userId !== undefined ? userId : (user?.id || null);
+    const list = getSavedReceipts(effectiveId);
     setHistoryCount(list.length);
   };
 
   useEffect(() => {
-    refreshHistoryCount();
+    refreshHistoryCount(user?.id);
+  }, [user?.id]);
+
+  useEffect(() => {
     if (typeof window !== 'undefined') {
       const savedLogo = localStorage.getItem('company_logo');
       if (savedLogo) {
