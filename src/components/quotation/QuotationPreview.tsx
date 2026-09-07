@@ -10,6 +10,9 @@ import {
   Receipt,
   FileText,
   Calendar,
+  Upload,
+  Image as ImageIcon,
+  Trash2,
 } from 'lucide-react';
 import { Quotation, OutputDocType } from '@/lib/types';
 import { formatCurrency, formatDate, bahtText } from '@/lib/formatters';
@@ -29,6 +32,43 @@ export default function QuotationPreview({
 }: QuotationPreviewProps) {
   const [copied, setCopied] = useState(false);
   const isReceipt = quotation.docType === 'receipt';
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 3 * 1024 * 1024) {
+      alert('กรุณาเลือกไฟล์รูปภาพขนาดไม่เกิน 3MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (loadEvt) => {
+      const base64 = loadEvt.target?.result as string;
+      if (base64 && onUpdateQuotation) {
+        onUpdateQuotation({
+          ...quotation,
+          seller: { ...quotation.seller, logoUrl: base64 },
+        });
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('company_logo', base64);
+        }
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveLogo = () => {
+    if (onUpdateQuotation) {
+      onUpdateQuotation({
+        ...quotation,
+        seller: { ...quotation.seller, logoUrl: '' },
+      });
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('company_logo');
+      }
+    }
+  };
 
   // Calculations
   const subtotal = quotation.items.reduce((acc, item) => acc + (item.totalPrice || 0), 0);
@@ -141,23 +181,70 @@ export default function QuotationPreview({
       <div className="print-area max-w-[210mm] mx-auto bg-white p-8 md:p-12 rounded-2xl shadow-md print:shadow-none print:p-0 print:max-w-none text-slate-800 text-xs">
         {/* Header: Company Profile & Document Title */}
         <div className="flex justify-between items-start border-b border-slate-300 pb-6 mb-6">
-          <div className="max-w-md space-y-1">
-            <h1 className="text-lg font-bold text-slate-900 tracking-tight">
-              {quotation.seller.name || 'ชื่อบริษัท / ผู้ประกอบการ'}
-            </h1>
-            <p className="text-slate-600 text-[11px] leading-relaxed">
-              {quotation.seller.address || '-'}
-            </p>
-            <div className="text-slate-600 text-[11px] space-y-0.5 pt-1">
-              <p>
-                <span className="font-semibold">เลขประจำตัวผู้เสียภาษี:</span>{' '}
-                <span className="font-mono">{quotation.seller.taxId || '-'}</span>
-                {quotation.seller.branch && ` (${quotation.seller.branch})`}
+          <div className="flex items-start gap-4 max-w-xl">
+            {quotation.seller.logoUrl ? (
+              <div className="relative group shrink-0">
+                <img
+                  src={quotation.seller.logoUrl}
+                  alt="Company Logo"
+                  className="w-20 h-20 md:w-24 md:h-24 object-contain rounded-lg border border-slate-200 p-1 bg-white shadow-2xs"
+                />
+                {onUpdateQuotation && (
+                  <div className="print:hidden absolute inset-0 bg-slate-900/60 text-white opacity-0 group-hover:opacity-100 rounded-lg flex flex-col items-center justify-center transition-opacity gap-1 p-1">
+                    <label className="text-[10px] font-semibold flex items-center gap-0.5 cursor-pointer hover:underline">
+                      <Upload className="w-3 h-3" />
+                      เปลี่ยน
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleLogoUpload}
+                        className="hidden"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleRemoveLogo}
+                      className="text-[10px] text-red-300 hover:text-red-100 flex items-center gap-0.5 hover:underline"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      ลบ
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              onUpdateQuotation && (
+                <label className="print:hidden flex flex-col items-center justify-center w-20 h-20 md:w-24 md:h-24 rounded-lg border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50/40 text-slate-400 hover:text-blue-600 cursor-pointer transition-all shrink-0 p-1 text-center">
+                  <ImageIcon className="w-5 h-5 mb-1" />
+                  <span className="text-[10px] font-semibold leading-tight">+ ใส่โลโก้</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleLogoUpload}
+                    className="hidden"
+                  />
+                </label>
+              )
+            )}
+
+            <div className="space-y-1">
+              <h1 className="text-lg font-bold text-slate-900 tracking-tight">
+                {quotation.seller.name || 'ชื่อบริษัท / ผู้ประกอบการ'}
+              </h1>
+              <p className="text-slate-600 text-[11px] leading-relaxed">
+                {quotation.seller.address || '-'}
               </p>
-              <p>
-                <span className="font-semibold">โทร:</span> {quotation.seller.phone || '-'}{' '}
-                {quotation.seller.email && `| อีเมล: ${quotation.seller.email}`}
-              </p>
+              <div className="text-slate-600 text-[11px] space-y-0.5 pt-1">
+                <p>
+                  <span className="font-semibold">เลขประจำตัวผู้เสียภาษี:</span>{' '}
+                  <span className="font-mono">{quotation.seller.taxId || '-'}</span>
+                  {quotation.seller.branch && ` (${quotation.seller.branch})`}
+                </p>
+                <p>
+                  <span className="font-semibold">โทร:</span> {quotation.seller.phone || '-'}{' '}
+                  {quotation.seller.email && `| อีเมล: ${quotation.seller.email}`}
+                </p>
+              </div>
             </div>
           </div>
 

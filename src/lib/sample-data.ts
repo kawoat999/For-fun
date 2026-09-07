@@ -8,6 +8,7 @@ export const DEFAULT_SELLER_INFO: CompanyInfo = {
   phone: '',
   email: '',
   website: '',
+  logoUrl: '',
 };
 
 export const DEFAULT_CLIENT_INFO: CompanyInfo = {

@@ -61,6 +61,15 @@ export default function Home() {
 
   useEffect(() => {
     refreshHistoryCount();
+    if (typeof window !== 'undefined') {
+      const savedLogo = localStorage.getItem('company_logo');
+      if (savedLogo) {
+        setQuotation((prev) => ({
+          ...prev,
+          seller: { ...prev.seller, logoUrl: savedLogo },
+        }));
+      }
+    }
   }, []);
 
   // When OCR scan succeeds -> go straight to Side-by-Side Review
